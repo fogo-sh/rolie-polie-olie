@@ -1,16 +1,16 @@
-version: "3.8"
-
 services:
   bot:
     build: .
     restart: unless-stopped
     environment:
-      - DISCORD_TOKEN=${DISCORD_TOKEN}
-      - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
-      - ADMIN_TOKEN=${ADMIN_TOKEN}
-      - DATABASE_PATH=/data/rolebot.sqlite
-      - PORT=3000
+      - RPO_DISCORD_TOKEN=${RPO_DISCORD_TOKEN}
+      - RPO_DISCORD_CLIENT_ID=${RPO_DISCORD_CLIENT_ID}
+      - RPO_DISCORD_CLIENT_SECRET=${RPO_DISCORD_CLIENT_SECRET}
+      - RPO_PUBLIC_URL=${RPO_PUBLIC_URL}
+      - RPO_ADMIN_USER_IDS=${RPO_ADMIN_USER_IDS}
+      - RPO_DATABASE_PATH=/data/rolebot.sqlite
+      - RPO_PORT=3000
     ports:
-      - "${PORT:-3000}:3000"
+      - "${RPO_PORT:-3000}:3000"
     volumes:
       - ./data:/data

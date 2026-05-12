@@ -8,8 +8,8 @@ import {
 import { getMappingsForMessage, upsertGuild } from "./db.js";
 
 export function createBot() {
-  const token = process.env.DISCORD_TOKEN;
-  if (!token) throw new Error("DISCORD_TOKEN is required");
+  const token = process.env.RPO_DISCORD_TOKEN;
+  if (!token) throw new Error("RPO_DISCORD_TOKEN is required");
 
   const client = new Client({
     intents: [

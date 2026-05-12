@@ -5,18 +5,18 @@ WORKDIR /app
 COPY package.json bun.lock* ./
 RUN bun install --frozen-lockfile
 
-# Build UI
+# Install UI dependencies
 COPY ui/package.json ui/bun.lock* ./ui/
 RUN cd ui && bun install --frozen-lockfile
-COPY ui ./ui
-RUN cd ui && bun run build
 
-# Copy source
+# Copy source. The UI build type-checks against ../src/api.ts (for the Hono
+# RPC AppType), so the backend source must be present before building the UI.
 COPY src ./src
 COPY tsconfig.json ./
+COPY ui ./ui
 
-# Create data directory
-RUN mkdir -p /app/data
+# Build UI
+RUN cd ui && bun run build
 
 EXPOSE 3000
 

@@ -11,7 +11,10 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "strict": true
+    "strict": true,
+    "paths": {
+      "@server/*": ["../src/*"]
+    }
   },
-  "include": ["src"]
+  "include": ["src", "../src/api.ts"]
 }

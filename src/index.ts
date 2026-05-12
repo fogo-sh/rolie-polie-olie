@@ -1,8 +1,10 @@
+import { Hono } from "hono";
+import { serveStatic } from "hono/bun";
 import { initDb } from "./db.js";
 import { createBot } from "./bot.js";
 import { createApi } from "./api.js";
 
-const PORT = Number(process.env.PORT ?? 3000);
+const PORT = Number(process.env.RPO_PORT ?? 3000);
 
 initDb();
 console.log("[db] Database initialized");
@@ -10,33 +12,19 @@ console.log("[db] Database initialized");
 const { client, start } = createBot();
 const api = createApi(client);
 
-const server = Bun.serve({
-  port: PORT,
-  async fetch(req) {
-    const url = new URL(req.url);
+const uiRoot = `${import.meta.dir}/../ui/dist`;
 
-    // Serve API routes via Hono
-    if (url.pathname.startsWith("/api/")) {
-      return api.fetch(req);
-    }
+const app = new Hono()
+  .route("/", api)
+  // Serve static UI assets, falling back to index.html for SPA routing.
+  .use("/*", serveStatic({ root: uiRoot }))
+  .use("/*", serveStatic({ root: uiRoot, path: "index.html" }));
 
-    // Serve static UI files
-    const uiPath = `${import.meta.dir}/../ui/dist${url.pathname === "/" ? "/index.html" : url.pathname}`;
-    const file = Bun.file(uiPath);
-    if (await file.exists()) {
-      return new Response(file);
-    }
-
-    // Fall back to index.html for SPA routing
-    const indexFile = Bun.file(`${import.meta.dir}/../ui/dist/index.html`);
-    if (await indexFile.exists()) {
-      return new Response(indexFile, { headers: { "Content-Type": "text/html" } });
-    }
-
-    return new Response("Not found", { status: 404 });
-  },
-});
-
+const server = Bun.serve({ port: PORT, fetch: app.fetch });
 console.log(`[server] Listening on http://localhost:${server.port}`);
 
-await start();
+// Keep the HTTP server up even if Discord login fails — the admin UI is the
+// most likely place to see the resulting error message and fix the token.
+start().catch((err) => {
+  console.error("[bot] Discord login failed:", err);
+});

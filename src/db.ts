@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import { Database, type SQLQueryBindings } from "bun:sqlite";
 
 export interface Guild {
   id: string;
@@ -19,7 +19,21 @@ export interface RoleMapping {
   created_at: string;
 }
 
-const DB_PATH = process.env.DATABASE_PATH ?? "./data/rolebot.sqlite";
+export interface Session {
+  id: string;
+  user_id: string;
+  username: string;
+  avatar: string | null;
+  created_at: string;
+  expires_at: string;
+}
+
+export interface OAuthState {
+  state: string;
+  expires_at: string;
+}
+
+const DB_PATH = process.env.RPO_DATABASE_PATH ?? "./data/rolebot.sqlite";
 
 export const db = new Database(DB_PATH, { create: true });
 
@@ -48,6 +62,28 @@ export function initDb() {
       FOREIGN KEY (guild_id) REFERENCES guilds(id)
     )
   `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      username TEXT NOT NULL,
+      avatar TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at TEXT NOT NULL
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS oauth_states (
+      state TEXT PRIMARY KEY,
+      expires_at TEXT NOT NULL
+    )
+  `);
+
+  // Opportunistically prune expired sessions and oauth states on startup.
+  db.run("DELETE FROM sessions WHERE expires_at < datetime('now')");
+  db.run("DELETE FROM oauth_states WHERE expires_at < datetime('now')");
 }
 
 export function upsertGuild(id: string, name: string) {
@@ -91,9 +127,12 @@ export function createMapping(data: {
   return db.query("SELECT * FROM role_mappings WHERE id = ?").get(result.lastInsertRowid) as RoleMapping;
 }
 
-export function updateMapping(id: number, data: Partial<Pick<RoleMapping, "mode" | "enabled" | "role_id">>) {
+export function updateMapping(
+  id: number,
+  data: { mode?: RoleMapping["mode"]; enabled?: boolean; role_id?: string },
+) {
   const fields: string[] = [];
-  const values: unknown[] = [];
+  const values: SQLQueryBindings[] = [];
   if (data.mode !== undefined) { fields.push("mode = ?"); values.push(data.mode); }
   if (data.enabled !== undefined) { fields.push("enabled = ?"); values.push(data.enabled ? 1 : 0); }
   if (data.role_id !== undefined) { fields.push("role_id = ?"); values.push(data.role_id); }
@@ -104,4 +143,58 @@ export function updateMapping(id: number, data: Partial<Pick<RoleMapping, "mode"
 
 export function deleteMapping(id: number) {
   db.run("DELETE FROM role_mappings WHERE id = ?", [id]);
+}
+
+// --- Sessions ---
+
+const SESSION_TTL_DAYS = 30;
+
+export function createSession(data: {
+  id: string;
+  user_id: string;
+  username: string;
+  avatar: string | null;
+}): Session {
+  db.run(
+    `INSERT INTO sessions (id, user_id, username, avatar, expires_at)
+     VALUES (?, ?, ?, ?, datetime('now', ?))`,
+    [data.id, data.user_id, data.username, data.avatar, `+${SESSION_TTL_DAYS} days`],
+  );
+  return db
+    .query("SELECT * FROM sessions WHERE id = ?")
+    .get(data.id) as Session;
+}
+
+export function getSession(id: string): Session | null {
+  return db
+    .query(
+      "SELECT * FROM sessions WHERE id = ? AND expires_at > datetime('now')",
+    )
+    .get(id) as Session | null;
+}
+
+export function deleteSession(id: string) {
+  db.run("DELETE FROM sessions WHERE id = ?", [id]);
+}
+
+// --- OAuth state (CSRF guard) ---
+
+const OAUTH_STATE_TTL_MINUTES = 10;
+
+export function createOAuthState(state: string) {
+  db.run(
+    `INSERT INTO oauth_states (state, expires_at) VALUES (?, datetime('now', ?))`,
+    [state, `+${OAUTH_STATE_TTL_MINUTES} minutes`],
+  );
+}
+
+export function consumeOAuthState(state: string): boolean {
+  const row = db
+    .query(
+      "SELECT state FROM oauth_states WHERE state = ? AND expires_at > datetime('now')",
+    )
+    .get(state) as { state: string } | null;
+  if (!row) return false;
+  db.run("DELETE FROM oauth_states WHERE state = ?", [state]);
+  return true;
 }
