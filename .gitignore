@@ -1,0 +1,8 @@
+node_modules/
+dist/
+data/
+.env
+*.sqlite
+bun.lockb
+ui/dist/
+ui/node_modules/
