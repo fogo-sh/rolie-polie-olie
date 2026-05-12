@@ -6,6 +6,7 @@ import {
   type Guild,
 } from "discord.js";
 import { getMappingsForMessage, upsertGuild } from "./db.js";
+import { emojiKey } from "./emoji.js";
 
 export function createBot() {
   const token = process.env.RPO_DISCORD_TOKEN;
@@ -43,12 +44,10 @@ export function createBot() {
       if (reaction.message.partial) await reaction.message.fetch();
 
       const messageId = reaction.message.id;
-      const emojiKey = reaction.emoji.id
-        ? `<:${reaction.emoji.name}:${reaction.emoji.id}>`
-        : (reaction.emoji.name ?? "");
+      const key = emojiKey(reaction.emoji);
 
       const mappings = getMappingsForMessage(messageId);
-      const matching = mappings.filter((m) => m.emoji_key === emojiKey && m.enabled);
+      const matching = mappings.filter((m) => m.emoji_key === key && m.enabled);
 
       for (const mapping of matching) {
         const guild = reaction.message.guild;
@@ -73,14 +72,12 @@ export function createBot() {
       if (reaction.message.partial) await reaction.message.fetch();
 
       const messageId = reaction.message.id;
-      const emojiKey = reaction.emoji.id
-        ? `<:${reaction.emoji.name}:${reaction.emoji.id}>`
-        : (reaction.emoji.name ?? "");
+      const key = emojiKey(reaction.emoji);
 
       const mappings = getMappingsForMessage(messageId);
       const matching = mappings.filter(
         (m) =>
-          m.emoji_key === emojiKey &&
+          m.emoji_key === key &&
           m.enabled &&
           (m.mode === "toggle" || m.mode === "remove-on-unreact")
       );

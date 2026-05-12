@@ -34,10 +34,7 @@ A self-hosted Discord reaction-role management bot with a web admin UI. React to
 
 1. Go to the **Bot** tab and click **Add Bot**.
 2. Under **Token**, click **Reset Token** and copy the token — this is your `RPO_DISCORD_TOKEN`.
-3. Enable all three **Privileged Gateway Intents**:
-   - ✅ Presence Intent
-   - ✅ Server Members Intent
-   - ✅ Message Content Intent
+3. Enable the **Server Members Intent** under **Privileged Gateway Intents**. This is required so the bot can fetch guild members and assign roles. The other two privileged intents (Presence, Message Content) are not needed.
 
 ### 3. Configure OAuth2 (admin login)
 

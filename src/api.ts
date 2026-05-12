@@ -3,7 +3,7 @@ import { cors } from "hono/cors";
 import { validator } from "hono/validator";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import type { MiddlewareHandler } from "hono";
-import { Client } from "discord.js";
+import { ChannelType, Client } from "discord.js";
 import {
   getGuilds,
   getMappings,
@@ -17,6 +17,7 @@ import {
   consumeOAuthState,
   type Session,
 } from "./db.js";
+import { emojiKey } from "./emoji.js";
 
 const MESSAGE_URL_RE = /discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/;
 const SESSION_COOKIE = "rpo_session";
@@ -244,6 +245,92 @@ export function createApi(discordClient: Client) {
         return c.json(roleList, 200);
       } catch {
         return c.json({ error: "Guild not found or bot lacks access" }, 404);
+      }
+    })
+
+    .get("/api/guilds/:guildId/emojis", requireAuth, async (c) => {
+      const { guildId } = c.req.param();
+      try {
+        const guild = await discordClient.guilds.fetch(guildId);
+        const emojis = await guild.emojis.fetch();
+        const list = emojis
+          .filter((e) => e.available !== false && e.name)
+          .map((e) => ({
+            id: e.id,
+            name: e.name!,
+            animated: !!e.animated,
+            key: emojiKey({
+              id: e.id,
+              name: e.name,
+              animated: e.animated,
+            }),
+            url: e.imageURL({ size: 64 }) ?? "",
+          }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+        return c.json(list, 200);
+      } catch {
+        return c.json({ error: "Guild not found or bot lacks access" }, 404);
+      }
+    })
+
+    .get("/api/guilds/:guildId/channels", requireAuth, async (c) => {
+      const { guildId } = c.req.param();
+      try {
+        const guild = await discordClient.guilds.fetch(guildId);
+        const channels = await guild.channels.fetch();
+        const list = Array.from(channels.values())
+          .filter(
+            (ch): ch is NonNullable<typeof ch> =>
+              ch !== null && ch.type === ChannelType.GuildText,
+          )
+          .map((ch) => ({ id: ch.id, name: ch.name }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+        return c.json(list, 200);
+      } catch {
+        return c.json({ error: "Guild not found or bot lacks access" }, 404);
+      }
+    })
+
+    .get("/api/messages/inspect", requireAuth, async (c) => {
+      const url = c.req.query("url") ?? "";
+      const match = url.match(MESSAGE_URL_RE);
+      if (!match) {
+        return c.json({ error: "Invalid Discord message URL" }, 400);
+      }
+      const [, , channelId, messageId] = match;
+
+      try {
+        const channel = await discordClient.channels.fetch(channelId);
+        if (!channel || !channel.isTextBased() || channel.isDMBased()) {
+          return c.json({ error: "Channel not found or not a guild text channel" }, 404);
+        }
+        const message = await channel.messages.fetch(messageId);
+        const channelName = "name" in channel ? (channel.name ?? "") : "";
+        const reactions = message.reactions.cache.map((r) => ({
+          key: emojiKey({
+            id: r.emoji.id,
+            name: r.emoji.name,
+            animated: r.emoji.animated,
+          }),
+          name: r.emoji.name ?? "",
+          id: r.emoji.id,
+          animated: !!r.emoji.animated,
+          count: r.count,
+          url: r.emoji.id
+            ? `https://cdn.discordapp.com/emojis/${r.emoji.id}.${r.emoji.animated ? "gif" : "png"}?size=64`
+            : null,
+        }));
+        return c.json(
+          {
+            channel_id: channelId,
+            channel_name: channelName,
+            message_id: messageId,
+            reactions,
+          },
+          200,
+        );
+      } catch {
+        return c.json({ error: "Message not found or bot lacks access" }, 404);
       }
     })
 

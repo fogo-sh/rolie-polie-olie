@@ -17,7 +17,8 @@ export const api = hc<AppWithAuth>("/", {
 });
 
 // Convenience type aliases inferred from the server routes. Each response is
-// a union of success + error shapes, so we extract the array success shapes.
+// a union of success + error shapes, so we extract the array / object success
+// shapes.
 type ArrayOf<T> = Extract<T, readonly unknown[]>;
 
 export type Guild = ArrayOf<
@@ -30,10 +31,23 @@ export type Mapping = ArrayOf<
 type MeResponse = InferResponseType<typeof api.api.auth.me.$get>;
 export type Me = Extract<MeResponse, { user_id: string }>;
 
-type RolesResponse = InferResponseType<
-  (typeof api.api.guilds)[":guildId"]["roles"]["$get"]
+export type Role = ArrayOf<
+  InferResponseType<(typeof api.api.guilds)[":guildId"]["roles"]["$get"]>
+>[number];
+
+export type GuildEmoji = ArrayOf<
+  InferResponseType<(typeof api.api.guilds)[":guildId"]["emojis"]["$get"]>
+>[number];
+
+export type GuildChannel = ArrayOf<
+  InferResponseType<(typeof api.api.guilds)[":guildId"]["channels"]["$get"]>
+>[number];
+
+export type MessageInspect = Extract<
+  InferResponseType<typeof api.api.messages.inspect.$get>,
+  { channel_id: string }
 >;
-export type Role = ArrayOf<RolesResponse>[number];
+export type MessageReaction = MessageInspect["reactions"][number];
 
 /**
  * Unwrap a hono RPC response: throws with the server-provided error message on

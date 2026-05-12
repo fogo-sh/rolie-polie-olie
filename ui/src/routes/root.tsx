@@ -1,6 +1,5 @@
 import {
   Form,
-  useFetcher,
   useLoaderData,
   useNavigation,
   redirect,
@@ -12,10 +11,14 @@ import {
   api,
   unwrap,
   type Guild,
+  type GuildChannel,
+  type GuildEmoji,
   type Mapping,
   type Me,
   type Role,
 } from "../api.ts";
+import { CreateMappingForm } from "../components/CreateMappingForm.tsx";
+import { MappingRow } from "../components/MappingRow.tsx";
 
 interface AuthedData {
   authed: true;
@@ -23,6 +26,8 @@ interface AuthedData {
   guilds: Guild[];
   mappings: Mapping[];
   roles: Role[];
+  guildEmojis: GuildEmoji[];
+  channels: GuildChannel[];
   selectedGuild: string;
   error?: string;
 }
@@ -68,14 +73,31 @@ async function loader({ request }: LoaderFunctionArgs): Promise<LoaderData> {
       selectedGuildParam || (guilds.length > 0 ? guilds[0].id : "");
 
     let roles: Role[] = [];
+    let guildEmojis: GuildEmoji[] = [];
+    let channels: GuildChannel[] = [];
+
     if (selectedGuild) {
-      try {
-        const res = await api.api.guilds[":guildId"].roles.$get({
+      // Load guild-scoped reference data in parallel. Each is non-fatal —
+      // if any fails, that part of the UI just won't decorate.
+      const [rolesRes, emojisRes, channelsRes] = await Promise.allSettled([
+        api.api.guilds[":guildId"].roles.$get({
           param: { guildId: selectedGuild },
-        });
-        if (res.ok) roles = await res.json();
-      } catch {
-        // Roles fetch failures are non-fatal; the form just won't have options.
+        }),
+        api.api.guilds[":guildId"].emojis.$get({
+          param: { guildId: selectedGuild },
+        }),
+        api.api.guilds[":guildId"].channels.$get({
+          param: { guildId: selectedGuild },
+        }),
+      ]);
+      if (rolesRes.status === "fulfilled" && rolesRes.value.ok) {
+        roles = await rolesRes.value.json();
+      }
+      if (emojisRes.status === "fulfilled" && emojisRes.value.ok) {
+        guildEmojis = await emojisRes.value.json();
+      }
+      if (channelsRes.status === "fulfilled" && channelsRes.value.ok) {
+        channels = await channelsRes.value.json();
       }
     }
 
@@ -85,6 +107,8 @@ async function loader({ request }: LoaderFunctionArgs): Promise<LoaderData> {
       guilds,
       mappings,
       roles,
+      guildEmojis,
+      channels,
       selectedGuild,
     };
   } catch (e) {
@@ -94,6 +118,8 @@ async function loader({ request }: LoaderFunctionArgs): Promise<LoaderData> {
       guilds: [],
       mappings: [],
       roles: [],
+      guildEmojis: [],
+      channels: [],
       selectedGuild: "",
       error: e instanceof Error ? e.message : "Failed to load data",
     };
@@ -105,7 +131,9 @@ interface ActionResult {
   error?: string;
 }
 
-async function action({ request }: ActionFunctionArgs): Promise<ActionResult | Response> {
+async function action({
+  request,
+}: ActionFunctionArgs): Promise<ActionResult | Response> {
   const formData = await request.formData();
   const intent = formData.get("intent");
 
@@ -174,7 +202,9 @@ function Layout({
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <header className="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-indigo-400">roliep-polie-olie</h1>
+          <h1 className="text-2xl font-bold text-indigo-400">
+            roliep-polie-olie
+          </h1>
           <p className="text-sm text-gray-400">Discord reaction-role manager</p>
         </div>
         {user && (
@@ -276,185 +306,18 @@ function GuildList({
   );
 }
 
-function CreateMappingForm({ roles }: { roles: Role[] }) {
-  const fetcher = useFetcher<ActionResult>();
-  const isSubmitting = fetcher.state === "submitting";
-  const formError = fetcher.data?.ok === false ? fetcher.data.error : undefined;
+function MappingsList({
+  mappings,
+  roles,
+  channels,
+}: {
+  mappings: Mapping[];
+  roles: Role[];
+  channels: GuildChannel[];
+}) {
+  const roleById = new Map(roles.map((r) => [r.id, r] as const));
+  const channelById = new Map(channels.map((c) => [c.id, c] as const));
 
-  return (
-    <section className="bg-gray-900 rounded-lg p-6 space-y-4">
-      <h2 className="text-lg font-semibold">Create Reaction-Role Mapping</h2>
-      {formError && (
-        <div className="bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded text-sm">
-          {formError}
-        </div>
-      )}
-      <fetcher.Form method="post" className="space-y-4">
-        <input type="hidden" name="intent" value="create-mapping" />
-
-        <Field label="Discord Message URL">
-          <input
-            type="text"
-            name="message_url"
-            required
-            className={inputClass}
-            placeholder="https://discord.com/channels/123/456/789"
-          />
-        </Field>
-
-        <Field
-          label="Emoji"
-          hint={
-            <>
-              For unicode: paste the emoji. For custom: use{" "}
-              <code>&lt;:name:id&gt;</code> format.
-            </>
-          }
-        >
-          <input
-            type="text"
-            name="emoji_key"
-            required
-            className={inputClass}
-            placeholder="👍 or <:custom:123456>"
-          />
-        </Field>
-
-        <Field label="Role">
-          {roles.length === 0 ? (
-            <p className="text-sm text-yellow-400">
-              No roles available. Make sure the bot has access to this guild.
-            </p>
-          ) : (
-            <select name="role_id" required className={inputClass}>
-              {roles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-          )}
-        </Field>
-
-        <Field label="Mode">
-          <select name="mode" defaultValue="toggle" className={inputClass}>
-            <option value="toggle">Toggle (add on react, remove on unreact)</option>
-            <option value="add-only">Add only (never removes role)</option>
-            <option value="remove-on-unreact">Remove on unreact</option>
-          </select>
-        </Field>
-
-        <div className="flex items-center gap-6">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              name="enabled"
-              defaultChecked
-              className="w-4 h-4 accent-indigo-500"
-            />
-            <span className="text-sm">Enabled</span>
-          </label>
-
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              name="add_reaction"
-              className="w-4 h-4 accent-indigo-500"
-            />
-            <span className="text-sm">Add bot reaction to message</span>
-          </label>
-        </div>
-
-        <button
-          type="submit"
-          disabled={isSubmitting || roles.length === 0}
-          className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-2 rounded text-sm font-medium"
-        >
-          {isSubmitting ? "Creating..." : "Create Mapping"}
-        </button>
-      </fetcher.Form>
-    </section>
-  );
-}
-
-function MappingRow({ mapping }: { mapping: Mapping }) {
-  const toggleFetcher = useFetcher();
-  const deleteFetcher = useFetcher();
-
-  // Optimistic enabled state.
-  const enabled = toggleFetcher.formData
-    ? toggleFetcher.formData.get("enabled") === "true"
-    : !!mapping.enabled;
-
-  // Hide the row immediately on delete submission.
-  if (deleteFetcher.state !== "idle") return null;
-
-  return (
-    <div className="border border-gray-700 rounded p-4 space-y-2">
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-lg">{mapping.emoji_key}</span>
-            <span className="text-sm text-gray-400">→ role {mapping.role_id}</span>
-            <span
-              className={`text-xs px-2 py-0.5 rounded ${
-                mapping.mode === "toggle"
-                  ? "bg-blue-900 text-blue-300"
-                  : mapping.mode === "add-only"
-                    ? "bg-green-900 text-green-300"
-                    : "bg-orange-900 text-orange-300"
-              }`}
-            >
-              {mapping.mode}
-            </span>
-          </div>
-          <a
-            href={mapping.message_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-indigo-400 hover:underline truncate block"
-          >
-            {mapping.message_url}
-          </a>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <toggleFetcher.Form method="post">
-            <input type="hidden" name="intent" value="toggle-mapping" />
-            <input type="hidden" name="id" value={mapping.id} />
-            <input type="hidden" name="enabled" value={String(!enabled)} />
-            <button
-              type="submit"
-              className={`text-xs px-2 py-1 rounded ${
-                enabled
-                  ? "bg-green-800 text-green-300 hover:bg-green-700"
-                  : "bg-gray-700 text-gray-400 hover:bg-gray-600"
-              }`}
-            >
-              {enabled ? "Enabled" : "Disabled"}
-            </button>
-          </toggleFetcher.Form>
-          <deleteFetcher.Form
-            method="post"
-            onSubmit={(e) => {
-              if (!confirm("Delete this mapping?")) e.preventDefault();
-            }}
-          >
-            <input type="hidden" name="intent" value="delete-mapping" />
-            <input type="hidden" name="id" value={mapping.id} />
-            <button
-              type="submit"
-              className="text-xs px-2 py-1 rounded bg-red-900 text-red-300 hover:bg-red-800"
-            >
-              Delete
-            </button>
-          </deleteFetcher.Form>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MappingsList({ mappings }: { mappings: Mapping[] }) {
   return (
     <section className="bg-gray-900 rounded-lg p-6 space-y-3">
       <h2 className="text-lg font-semibold">Reaction-Role Mappings</h2>
@@ -463,7 +326,12 @@ function MappingsList({ mappings }: { mappings: Mapping[] }) {
       ) : (
         <div className="space-y-2">
           {mappings.map((m) => (
-            <MappingRow key={m.id} mapping={m} />
+            <MappingRow
+              key={m.id}
+              mapping={m}
+              roleById={roleById}
+              channelById={channelById}
+            />
           ))}
         </div>
       )}
@@ -480,7 +348,16 @@ function Component() {
     return <LoginScreen loginError={data.loginError} />;
   }
 
-  const { user, guilds, mappings, roles, selectedGuild, error } = data;
+  const {
+    user,
+    guilds,
+    mappings,
+    roles,
+    guildEmojis,
+    channels,
+    selectedGuild,
+    error,
+  } = data;
 
   return (
     <Layout user={user}>
@@ -495,34 +372,13 @@ function Component() {
       {!isLoading && (
         <>
           <GuildList guilds={guilds} selectedGuild={selectedGuild} />
-          {selectedGuild && <CreateMappingForm roles={roles} />}
-          <MappingsList mappings={mappings} />
+          {selectedGuild && (
+            <CreateMappingForm roles={roles} guildEmojis={guildEmojis} />
+          )}
+          <MappingsList mappings={mappings} roles={roles} channels={channels} />
         </>
       )}
     </Layout>
-  );
-}
-
-const inputClass =
-  "w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500";
-
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-300 mb-1">
-        {label}
-      </label>
-      {children}
-      {hint && <p className="text-xs text-gray-500 mt-1">{hint}</p>}
-    </div>
   );
 }
 
