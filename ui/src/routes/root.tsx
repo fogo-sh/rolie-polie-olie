@@ -236,9 +236,18 @@ async function action({
   }
 }
 
-function Layout({ user, children }: { user?: Me; children: React.ReactNode }) {
+function Layout({
+  user,
+  busy = false,
+  children,
+}: {
+  user?: Me;
+  busy?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <div className="min-h-screen bg-stone-950 text-stone-100">
+      <ProgressBar visible={busy} />
       <header className="border-b-2 border-stone-800 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <img src="/rpo.webp" alt="" className="w-12 h-16 object-cover" />
@@ -275,7 +284,32 @@ function Layout({ user, children }: { user?: Me; children: React.ReactNode }) {
           </div>
         )}
       </header>
-      <main className="max-w-4xl mx-auto px-6 py-8 space-y-8">{children}</main>
+      <main
+        className={`max-w-4xl mx-auto px-6 py-8 space-y-8 transition-opacity duration-150 ${
+          busy ? "opacity-60" : "opacity-100"
+        }`}
+        aria-busy={busy}
+      >
+        {children}
+      </main>
+    </div>
+  );
+}
+
+/**
+ * Indeterminate progress bar pinned to the top of the viewport. Stays
+ * mounted but fades in/out so the activity hint doesn't flash for very
+ * quick navigations.
+ */
+function ProgressBar({ visible }: { visible: boolean }) {
+  return (
+    <div
+      aria-hidden
+      className={`fixed top-0 left-0 right-0 h-0.5 bg-stone-800 overflow-hidden z-50 transition-opacity duration-150 ${
+        visible ? "opacity-100" : "opacity-0"
+      }`}
+    >
+      <div className="rpo-progress-bar h-full w-1/4 bg-amber-500" />
     </div>
   );
 }
@@ -387,7 +421,11 @@ function MappingsList({
 function Component() {
   const data = useLoaderData() as LoaderData;
   const navigation = useNavigation();
-  const isLoading = navigation.state === "loading";
+  // Treat both submissions and loader revalidations as "busy". The loader
+  // returns the previous data while the next one resolves, so we keep the
+  // current UI on screen and just hint that something is in flight with a
+  // thin top-of-page bar plus a faded main area.
+  const busy = navigation.state !== "idle";
 
   if (!data.authed) {
     return <LoginScreen loginError={data.loginError} />;
@@ -406,28 +444,22 @@ function Component() {
   } = data;
 
   return (
-    <Layout user={user}>
+    <Layout user={user} busy={busy}>
       {error && (
         <div className="bg-stone-900 border-2 border-red-700 text-red-300 px-4 py-3">
           {error}
         </div>
       )}
 
-      {isLoading && <p className="text-stone-400">Loading</p>}
-
-      {!isLoading && (
-        <>
-          <GuildList guilds={guilds} selectedGuild={selectedGuild} />
-          {selectedGuild && (
-            <CreateMappingForm
-              roles={roles}
-              guildEmojis={guildEmojis}
-              editing={editing}
-            />
-          )}
-          <MappingsList mappings={mappings} roles={roles} channels={channels} />
-        </>
+      <GuildList guilds={guilds} selectedGuild={selectedGuild} />
+      {selectedGuild && (
+        <CreateMappingForm
+          roles={roles}
+          guildEmojis={guildEmojis}
+          editing={editing}
+        />
       )}
+      <MappingsList mappings={mappings} roles={roles} channels={channels} />
     </Layout>
   );
 }

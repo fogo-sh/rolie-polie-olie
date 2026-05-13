@@ -1,3 +1,18 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Indeterminate top-of-page progress bar. A short amber segment slides
+   across the bar repeatedly while a navigation or action is in flight. */
+@keyframes rpo-progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+.rpo-progress-bar {
+  animation: rpo-progress 1s linear infinite;
+}
