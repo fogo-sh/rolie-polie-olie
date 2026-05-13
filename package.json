@@ -13,8 +13,10 @@
     "check": "bun run lint && bun run fmt:check && bun run typecheck"
   },
   "dependencies": {
+    "@hono/zod-validator": "^0.8.0",
     "discord.js": "^14.16.0",
-    "hono": "^4.6.0"
+    "hono": "^4.6.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/bun": "^1.1.0",
