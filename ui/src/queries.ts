@@ -1,12 +1,7 @@
 // TanStack Query hooks + invalidation helpers. Keeping the keys/configs here
 // makes invalidation from mutations consistent and surface-area small.
 
-import {
-  queryOptions,
-  useQuery,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   api,
   unwrap,
@@ -69,41 +64,30 @@ export const mappingsQuery = () =>
 export const rolesQuery = (guildId: string) =>
   queryOptions<Role[]>({
     queryKey: queryKeys.roles(guildId),
-    queryFn: () =>
-      api.api.guilds[":guildId"].roles
-        .$get({ param: { guildId } })
-        .then(unwrap),
+    queryFn: () => api.api.guilds[":guildId"].roles.$get({ param: { guildId } }).then(unwrap),
     enabled: !!guildId,
   });
 
 export const emojisQuery = (guildId: string) =>
   queryOptions<GuildEmoji[]>({
     queryKey: queryKeys.emojis(guildId),
-    queryFn: () =>
-      api.api.guilds[":guildId"].emojis
-        .$get({ param: { guildId } })
-        .then(unwrap),
+    queryFn: () => api.api.guilds[":guildId"].emojis.$get({ param: { guildId } }).then(unwrap),
     enabled: !!guildId,
   });
 
 export const channelsQuery = (guildId: string) =>
   queryOptions<GuildChannel[]>({
     queryKey: queryKeys.channels(guildId),
-    queryFn: () =>
-      api.api.guilds[":guildId"].channels
-        .$get({ param: { guildId } })
-        .then(unwrap),
+    queryFn: () => api.api.guilds[":guildId"].channels.$get({ param: { guildId } }).then(unwrap),
     enabled: !!guildId,
   });
 
-const MESSAGE_URL_RE =
-  /^https?:\/\/(?:[a-z]+\.)?discord\.com\/channels\/\d+\/\d+\/\d+$/i;
+const MESSAGE_URL_RE = /^https?:\/\/(?:[a-z]+\.)?discord\.com\/channels\/\d+\/\d+\/\d+$/i;
 
 export const messageInspectQuery = (url: string) =>
   queryOptions<MessageInspect>({
     queryKey: queryKeys.messageInspect(url),
-    queryFn: () =>
-      api.api.messages.inspect.$get({ query: { url } }).then(unwrap),
+    queryFn: () => api.api.messages.inspect.$get({ query: { url } }).then(unwrap),
     enabled: MESSAGE_URL_RE.test(url),
     // Inspect results are cheap to recompute and the answer can change
     // (someone reacts to the message), so don't hold onto them.
@@ -131,8 +115,7 @@ interface UpdateMappingInput {
 export function useCreateMapping() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: CreateMappingInput) =>
-      api.api.mappings.$post({ json: input }).then(unwrap),
+    mutationFn: (input: CreateMappingInput) => api.api.mappings.$post({ json: input }).then(unwrap),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.mappings() });
     },
@@ -143,9 +126,7 @@ export function useUpdateMapping() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, patch }: { id: number; patch: UpdateMappingInput }) =>
-      api.api.mappings[":id"]
-        .$patch({ param: { id: String(id) }, json: patch })
-        .then(unwrap),
+      api.api.mappings[":id"].$patch({ param: { id: String(id) }, json: patch }).then(unwrap),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.mappings() });
     },
@@ -156,9 +137,7 @@ export function useDeleteMapping() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: number) =>
-      api.api.mappings[":id"]
-        .$delete({ param: { id: String(id) } })
-        .then(unwrap),
+      api.api.mappings[":id"].$delete({ param: { id: String(id) } }).then(unwrap),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.mappings() });
     },
@@ -175,5 +154,3 @@ export function useLogout() {
     },
   });
 }
-
-

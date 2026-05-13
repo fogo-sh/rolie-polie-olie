@@ -42,9 +42,7 @@ export function EmojiPicker({
   const [query, setQuery] = useState("");
 
   const filteredGuild = query
-    ? guildEmojis.filter((e) =>
-        e.name.toLowerCase().includes(query.toLowerCase()),
-      )
+    ? guildEmojis.filter((e) => e.name.toLowerCase().includes(query.toLowerCase()))
     : guildEmojis;
 
   const selectedReaction = reactions.find((r) => r.key === value);
@@ -57,9 +55,7 @@ export function EmojiPicker({
 
       {reactions.length > 0 && (
         <div>
-          <div className="text-xs text-stone-400 mb-2">
-            Already on the message. Pick one:
-          </div>
+          <div className="text-xs text-stone-400 mb-2">Already on the message. Pick one:</div>
           <div className="flex flex-wrap gap-2">
             {reactions.map((r) => (
               <EmojiChip
@@ -96,16 +92,10 @@ export function EmojiPicker({
                   onClick={() => onChange(e.key)}
                   title={`:${e.name}:`}
                   className={`p-1.5 hover:bg-stone-800 border-2 ${
-                    e.key === value
-                      ? "border-amber-500 bg-stone-800"
-                      : "border-transparent"
+                    e.key === value ? "border-amber-500 bg-stone-800" : "border-transparent"
                   }`}
                 >
-                  <img
-                    src={e.url}
-                    alt={e.name}
-                    className="size-6 mx-auto"
-                  />
+                  <img src={e.url} alt={e.name} className="size-6 mx-auto" />
                 </button>
               ))}
               {filteredGuild.length === 0 && (
@@ -130,9 +120,8 @@ export function EmojiPicker({
           placeholder="👍 or <:name:123456>"
         />
         <p className="text-xs text-stone-500 mt-1">
-          Paste a unicode character, or a custom emoji in{" "}
-          <code>&lt;:name:id&gt;</code> form (animated:{" "}
-          <code>&lt;a:name:id&gt;</code>).
+          Paste a unicode character, or a custom emoji in <code>&lt;:name:id&gt;</code> form
+          (animated: <code>&lt;a:name:id&gt;</code>).
         </p>
       </details>
 
@@ -179,9 +168,7 @@ function EmojiChip({
       ) : (
         <span className="text-base leading-none">{label}</span>
       )}
-      {badge !== undefined && (
-        <span className="text-xs text-stone-400">{badge}</span>
-      )}
+      {badge !== undefined && <span className="text-xs text-stone-400">{badge}</span>}
     </button>
   );
 }

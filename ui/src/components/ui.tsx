@@ -17,10 +17,7 @@ export function Field({
 }) {
   return (
     <div>
-      <label
-        htmlFor={id}
-        className="block text-sm font-medium text-stone-300 mb-1"
-      >
+      <label htmlFor={id} className="block text-sm font-medium text-stone-300 mb-1">
         {label}
       </label>
       {children}

@@ -50,13 +50,9 @@ export function MappingRow({ mapping, roleById, channelById }: Props) {
                 <span className="text-stone-200">{role.name}</span>
               </span>
             ) : (
-              <span className="text-sm text-stone-400 font-mono">
-                role {mapping.role_id}
-              </span>
+              <span className="text-sm text-stone-400 font-mono">role {mapping.role_id}</span>
             )}
-            <span
-              className={`text-xs px-2 py-0.5 border ${MODE_BADGE[mapping.mode]}`}
-            >
+            <span className={`text-xs px-2 py-0.5 border ${MODE_BADGE[mapping.mode]}`}>
               {mapping.mode}
             </span>
           </div>
@@ -75,9 +71,7 @@ export function MappingRow({ mapping, roleById, channelById }: Props) {
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            onClick={() =>
-              toggle.mutate({ id: mapping.id, patch: { enabled: !enabled } })
-            }
+            onClick={() => toggle.mutate({ id: mapping.id, patch: { enabled: !enabled } })}
             disabled={toggle.isPending}
             className={`text-xs px-2 py-1 border-2 disabled:cursor-progress ${
               enabled

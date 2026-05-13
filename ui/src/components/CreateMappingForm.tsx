@@ -1,19 +1,10 @@
 import { useForm, useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import {
-  messageInspectQuery,
-  useCreateMapping,
-  useUpdateMapping,
-} from "../queries.ts";
+import { messageInspectQuery, useCreateMapping, useUpdateMapping } from "../queries.ts";
 import { Field, inputClass, RoleSwatch } from "./ui.tsx";
 import { EmojiPicker } from "./EmojiPicker.tsx";
-import type {
-  GuildEmoji,
-  Mapping,
-  MessageInspect,
-  Role,
-} from "../api.ts";
+import type { GuildEmoji, Mapping, MessageInspect, Role } from "../api.ts";
 
 interface Props {
   roles: Role[];
@@ -33,8 +24,7 @@ interface FormValues {
   add_reaction: boolean;
 }
 
-const MESSAGE_URL_RE =
-  /^https?:\/\/(?:[a-z]+\.)?discord\.com\/channels\/\d+\/\d+\/\d+$/i;
+const MESSAGE_URL_RE = /^https?:\/\/(?:[a-z]+\.)?discord\.com\/channels\/\d+\/\d+\/\d+$/i;
 
 export function CreateMappingForm({ roles, guildEmojis, editing }: Props) {
   const isEdit = !!editing;
@@ -82,9 +72,7 @@ export function CreateMappingForm({ roles, guildEmojis, editing }: Props) {
   return (
     <section className="bg-stone-900 border-2 border-stone-700 p-6 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">
-          {isEdit ? "Edit mapping" : "New mapping"}
-        </h2>
+        <h2 className="text-lg font-semibold">{isEdit ? "Edit mapping" : "New mapping"}</h2>
         {isEdit && (
           <Link
             to={guildParam ? `/?guild=${guildParam}` : "/"}
@@ -100,9 +88,7 @@ export function CreateMappingForm({ roles, guildEmojis, editing }: Props) {
           role="alert"
           className="bg-stone-900 border-2 border-red-700 text-red-300 px-4 py-3 text-sm"
         >
-          {mutationError instanceof Error
-            ? mutationError.message
-            : "Something went wrong"}
+          {mutationError instanceof Error ? mutationError.message : "Something went wrong"}
         </div>
       )}
 
@@ -142,9 +128,7 @@ export function CreateMappingForm({ roles, guildEmojis, editing }: Props) {
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
               )}
-              <InspectStatus
-                state={inspectStatusFromQuery(messageUrlValue, inspect)}
-              />
+              <InspectStatus state={inspectStatusFromQuery(messageUrlValue, inspect)} />
             </Field>
           )}
         </form.Field>
@@ -152,8 +136,7 @@ export function CreateMappingForm({ roles, guildEmojis, editing }: Props) {
         <form.Field
           name="emoji_key"
           validators={{
-            onChange: ({ value }) =>
-              !value ? "Emoji is required" : undefined,
+            onChange: ({ value }) => (!value ? "Emoji is required" : undefined),
           }}
         >
           {(field) => (
@@ -199,12 +182,8 @@ export function CreateMappingForm({ roles, guildEmojis, editing }: Props) {
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value as Mode)}
               >
-                <option value="toggle">
-                  toggle: add on react, remove on unreact
-                </option>
-                <option value="add-only">
-                  add only: never takes the role back
-                </option>
+                <option value="toggle">toggle: add on react, remove on unreact</option>
+                <option value="add-only">add only: never takes the role back</option>
                 <option value="remove-on-unreact">
                   remove on unreact: only takes the role away
                 </option>
@@ -238,20 +217,14 @@ export function CreateMappingForm({ roles, guildEmojis, editing }: Props) {
           )}
         </div>
 
-        <form.Subscribe
-          selector={(s) => [s.canSubmit, s.isSubmitting] as const}
-        >
+        <form.Subscribe selector={(s) => [s.canSubmit, s.isSubmitting] as const}>
           {([canSubmit, isSubmitting]) => (
             <button
               type="submit"
               disabled={!canSubmit || roles.length === 0}
               className="bg-amber-600 hover:bg-amber-500 text-stone-950 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-2 text-sm font-medium border-2 border-amber-400"
             >
-              {isSubmitting
-                ? "Saving"
-                : isEdit
-                  ? "Save changes"
-                  : "Save mapping"}
+              {isSubmitting ? "Saving" : isEdit ? "Save changes" : "Save mapping"}
             </button>
           )}
         </form.Subscribe>
@@ -296,10 +269,8 @@ function InspectStatus({ state }: { state: InspectStatusKind }) {
       const n = state.data.reactions.length;
       return (
         <p className="text-xs text-amber-400 mt-1">
-          Found it in{" "}
-          <span className="text-stone-300">#{state.data.channel_name}</span>
-          {n > 0 &&
-            `. ${n} reaction${n === 1 ? "" : "s"} already there.`}
+          Found it in <span className="text-stone-300">#{state.data.channel_name}</span>
+          {n > 0 && `. ${n} reaction${n === 1 ? "" : "s"} already there.`}
         </p>
       );
     }

@@ -80,19 +80,13 @@ const inspectQuerySchema = z.object({
  * Wraps @hono/zod-validator so every failed validation returns a uniform
  * `{ error, issues }` 400 response instead of zValidator's default body.
  */
-const validate = <
-  T extends z.ZodType,
-  Target extends keyof ValidationTargets,
->(
+const validate = <T extends z.ZodType, Target extends keyof ValidationTargets>(
   target: Target,
   schema: T,
 ) =>
   zv(target, schema, (result, c) => {
     if (!result.success) {
-      return c.json(
-        { error: "Invalid request", issues: result.error.issues },
-        400,
-      );
+      return c.json({ error: "Invalid request", issues: result.error.issues }, 400);
     }
   });
 
@@ -130,9 +124,7 @@ export function createApi(discordClient: Client) {
   const publicUrl = requireEnv("RPO_PUBLIC_URL").replace(/\/$/, "");
   const allowlist = parseAllowlist(process.env.RPO_ADMIN_USER_IDS);
   if (allowlist.size === 0) {
-    throw new Error(
-      "RPO_ADMIN_USER_IDS must contain at least one Discord user ID",
-    );
+    throw new Error("RPO_ADMIN_USER_IDS must contain at least one Discord user ID");
   }
 
   const redirectUri = `${publicUrl}/api/auth/discord/callback`;
@@ -141,10 +133,7 @@ export function createApi(discordClient: Client) {
   // Auth middleware: resolves the session from the cookie and rejects with 401
   // if the request is not authenticated. Only applied to /api/* routes that
   // require auth; the OAuth routes themselves are unprotected.
-  const requireAuth: MiddlewareHandler<{ Variables: Variables }> = async (
-    c,
-    next,
-  ) => {
+  const requireAuth: MiddlewareHandler<{ Variables: Variables }> = async (c, next) => {
     const sid = getCookie(c, SESSION_COOKIE);
     const session = sid ? getSession(sid) : null;
     if (!session) return c.json({ error: "Unauthorized" }, 401);
@@ -177,11 +166,9 @@ export function createApi(discordClient: Client) {
       const state = c.req.query("state");
       const errParam = c.req.query("error");
 
-      if (errParam)
-        return c.redirect(`/?login_error=${encodeURIComponent(errParam)}`);
+      if (errParam) return c.redirect(`/?login_error=${encodeURIComponent(errParam)}`);
       if (!code || !state) return c.redirect("/?login_error=missing_params");
-      if (!consumeOAuthState(state))
-        return c.redirect("/?login_error=invalid_state");
+      if (!consumeOAuthState(state)) return c.redirect("/?login_error=invalid_state");
 
       // Exchange code for token.
       const tokenRes = await fetch("https://discord.com/api/oauth2/token", {
@@ -318,8 +305,7 @@ export function createApi(discordClient: Client) {
         const channels = await guild.channels.fetch();
         const list = Array.from(channels.values())
           .filter(
-            (ch): ch is NonNullable<typeof ch> =>
-              ch !== null && ch.type === ChannelType.GuildText,
+            (ch): ch is NonNullable<typeof ch> => ch !== null && ch.type === ChannelType.GuildText,
           )
           .map((ch) => ({ id: ch.id, name: ch.name }))
           .sort((a, b) => a.name.localeCompare(b.name));
@@ -329,119 +315,95 @@ export function createApi(discordClient: Client) {
       }
     })
 
-    .get(
-      "/api/messages/inspect",
-      requireAuth,
-      validate("query", inspectQuerySchema),
-      async (c) => {
-        const { url } = c.req.valid("query");
-        const { channel_id, message_id } = url;
+    .get("/api/messages/inspect", requireAuth, validate("query", inspectQuerySchema), async (c) => {
+      const { url } = c.req.valid("query");
+      const { channel_id, message_id } = url;
 
-        try {
-          const channel = await discordClient.channels.fetch(channel_id);
-          if (!channel || !channel.isTextBased() || channel.isDMBased()) {
-            return c.json(
-              { error: "Channel not found or not a guild text channel" },
-              404,
-            );
-          }
-          const message = await channel.messages.fetch(message_id);
-          const channelName = "name" in channel ? (channel.name ?? "") : "";
-          const reactions = message.reactions.cache.map((r) => ({
-            key: emojiKey({
-              id: r.emoji.id,
-              name: r.emoji.name,
-              animated: r.emoji.animated,
-            }),
-            name: r.emoji.name ?? "",
+      try {
+        const channel = await discordClient.channels.fetch(channel_id);
+        if (!channel || !channel.isTextBased() || channel.isDMBased()) {
+          return c.json({ error: "Channel not found or not a guild text channel" }, 404);
+        }
+        const message = await channel.messages.fetch(message_id);
+        const channelName = "name" in channel ? (channel.name ?? "") : "";
+        const reactions = message.reactions.cache.map((r) => ({
+          key: emojiKey({
             id: r.emoji.id,
-            animated: !!r.emoji.animated,
-            count: r.count,
-            url: r.emoji.id
-              ? `https://cdn.discordapp.com/emojis/${r.emoji.id}.${r.emoji.animated ? "gif" : "png"}?size=64`
-              : null,
-          }));
-          return c.json(
-            {
-              channel_id,
-              channel_name: channelName,
-              message_id,
-              reactions,
-            },
-            200,
-          );
-        } catch {
-          return c.json({ error: "Message not found or bot lacks access" }, 404);
-        }
-      },
-    )
-
-    .get(
-      "/api/mappings",
-      requireAuth,
-      validate("query", mappingsQuerySchema),
-      (c) => {
-        const { guildId } = c.req.valid("query");
-        return c.json(getMappings(guildId));
-      },
-    )
-
-    .post(
-      "/api/mappings",
-      requireAuth,
-      validate("json", createMappingSchema),
-      async (c) => {
-        const body = c.req.valid("json");
-        const { url, guild_id, channel_id, message_id } = body.message_url;
-
-        try {
-          const channel = await discordClient.channels.fetch(channel_id);
-          if (!channel || !channel.isTextBased()) {
-            return c.json(
-              { error: "Channel not found or not a text channel" },
-              400,
-            );
-          }
-          const message = await channel.messages.fetch(message_id);
-
-          if (body.add_reaction) {
-            try {
-              await message.react(body.emoji_key);
-            } catch {
-              console.warn("[api] Could not add reaction to message");
-            }
-          }
-        } catch {
-          return c.json(
-            { error: "Could not fetch message. Check bot permissions." },
-            400,
-          );
-        }
-
-        try {
-          const mapping = createMapping({
-            guild_id,
+            name: r.emoji.name,
+            animated: r.emoji.animated,
+          }),
+          name: r.emoji.name ?? "",
+          id: r.emoji.id,
+          animated: !!r.emoji.animated,
+          count: r.count,
+          url: r.emoji.id
+            ? `https://cdn.discordapp.com/emojis/${r.emoji.id}.${r.emoji.animated ? "gif" : "png"}?size=64`
+            : null,
+        }));
+        return c.json(
+          {
             channel_id,
+            channel_name: channelName,
             message_id,
-            message_url: url,
-            emoji_key: body.emoji_key,
-            role_id: body.role_id,
-            mode: body.mode,
-            enabled: body.enabled,
-          });
-          return c.json(mapping, 201);
-        } catch (err) {
-          if (err instanceof Error && err.message.includes("UNIQUE")) {
-            throw new HTTPException(409, {
-              message: "A mapping for this message and emoji already exists",
-            });
+            reactions,
+          },
+          200,
+        );
+      } catch {
+        return c.json({ error: "Message not found or bot lacks access" }, 404);
+      }
+    })
+
+    .get("/api/mappings", requireAuth, validate("query", mappingsQuerySchema), (c) => {
+      const { guildId } = c.req.valid("query");
+      return c.json(getMappings(guildId));
+    })
+
+    .post("/api/mappings", requireAuth, validate("json", createMappingSchema), async (c) => {
+      const body = c.req.valid("json");
+      const { url, guild_id, channel_id, message_id } = body.message_url;
+
+      try {
+        const channel = await discordClient.channels.fetch(channel_id);
+        if (!channel || !channel.isTextBased()) {
+          return c.json({ error: "Channel not found or not a text channel" }, 400);
+        }
+        const message = await channel.messages.fetch(message_id);
+
+        if (body.add_reaction) {
+          try {
+            await message.react(body.emoji_key);
+          } catch {
+            console.warn("[api] Could not add reaction to message");
           }
-          throw new HTTPException(500, {
-            message: "Failed to create mapping",
+        }
+      } catch {
+        return c.json({ error: "Could not fetch message. Check bot permissions." }, 400);
+      }
+
+      try {
+        const mapping = createMapping({
+          guild_id,
+          channel_id,
+          message_id,
+          message_url: url,
+          emoji_key: body.emoji_key,
+          role_id: body.role_id,
+          mode: body.mode,
+          enabled: body.enabled,
+        });
+        return c.json(mapping, 201);
+      } catch (err) {
+        if (err instanceof Error && err.message.includes("UNIQUE")) {
+          throw new HTTPException(409, {
+            message: "A mapping for this message and emoji already exists",
           });
         }
-      },
-    )
+        throw new HTTPException(500, {
+          message: "Failed to create mapping",
+        });
+      }
+    })
 
     .patch(
       "/api/mappings/:id",
@@ -456,16 +418,11 @@ export function createApi(discordClient: Client) {
       },
     )
 
-    .delete(
-      "/api/mappings/:id",
-      requireAuth,
-      validate("param", idParamSchema),
-      (c) => {
-        const { id } = c.req.valid("param");
-        deleteMapping(id);
-        return c.json({ success: true });
-      },
-    );
+    .delete("/api/mappings/:id", requireAuth, validate("param", idParamSchema), (c) => {
+      const { id } = c.req.valid("param");
+      deleteMapping(id);
+      return c.json({ success: true });
+    });
 
   // Surface HTTPException as JSON (`{ error: message }`) for our own throws,
   // while preserving any pre-built response (e.g. bearerAuth's WWW-Authenticate

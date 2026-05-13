@@ -15,13 +15,7 @@ import {
   rolesQuery,
   useLogout,
 } from "../queries.ts";
-import type {
-  Guild,
-  GuildChannel,
-  Mapping,
-  Me,
-  Role,
-} from "../api.ts";
+import type { Guild, GuildChannel, Mapping, Me, Role } from "../api.ts";
 import { CreateMappingForm } from "../components/CreateMappingForm.tsx";
 import { MappingRow } from "../components/MappingRow.tsx";
 
@@ -97,10 +91,7 @@ function AuthedApp({ me }: { me: Me }) {
         </div>
       )}
 
-      <GuildList
-        guilds={guilds.data ?? []}
-        selectedGuild={selectedGuild}
-      />
+      <GuildList guilds={guilds.data ?? []} selectedGuild={selectedGuild} />
       {selectedGuild && (
         // Key on the editing target so transitioning between create-mode and
         // any specific edit (or between two different edits) remounts the
@@ -141,20 +132,13 @@ function Layout({
         <div className="flex items-center gap-4">
           <img src="/rpo.webp" alt="" className="w-12 h-16 object-cover" />
           <div>
-            <h1 className="text-2xl font-semibold text-amber-400">
-              rolie-polie-olie
-            </h1>
-            <p className="text-sm text-stone-400">
-              React to a message, get a role.
-            </p>
+            <h1 className="text-2xl font-semibold text-amber-400">rolie-polie-olie</h1>
+            <p className="text-sm text-stone-400">React to a message, get a role.</p>
           </div>
         </div>
         {user && <UserChip user={user} />}
       </header>
-      <main
-        className="max-w-4xl mx-auto px-6 py-8 space-y-8"
-        aria-busy={busy}
-      >
+      <main className="max-w-4xl mx-auto px-6 py-8 space-y-8" aria-busy={busy}>
         {children}
       </main>
     </div>
@@ -219,8 +203,8 @@ function LoginScreen({ loginError }: { loginError?: string }) {
       <section className="bg-stone-900 border-2 border-stone-700 p-8 space-y-4 text-center">
         <h2 className="text-lg font-semibold">Who are you?</h2>
         <p className="text-sm text-stone-400">
-          Log in with Discord. The bot owner has to add your user ID to the
-          allowlist before this works.
+          Log in with Discord. The bot owner has to add your user ID to the allowlist before this
+          works.
         </p>
         {loginError && (
           <div
@@ -241,13 +225,7 @@ function LoginScreen({ loginError }: { loginError?: string }) {
   );
 }
 
-function GuildList({
-  guilds,
-  selectedGuild,
-}: {
-  guilds: Guild[];
-  selectedGuild: string;
-}) {
+function GuildList({ guilds, selectedGuild }: { guilds: Guild[]; selectedGuild: string }) {
   return (
     <section className="bg-stone-900 border-2 border-stone-700 p-6 space-y-3">
       <h2 className="text-lg font-semibold">Servers</h2>
@@ -275,9 +253,7 @@ function GuildList({
                   <div className="font-medium">{g.name}</div>
                   <div className="text-xs text-stone-400">{g.id}</div>
                 </button>
-                {isSelected && (
-                  <span className="text-xs text-amber-400">picked</span>
-                )}
+                {isSelected && <span className="text-xs text-amber-400">picked</span>}
               </Form>
             );
           })}
@@ -307,12 +283,7 @@ function MappingsList({
       ) : (
         <div className="space-y-2">
           {mappings.map((m) => (
-            <MappingRow
-              key={m.id}
-              mapping={m}
-              roleById={roleById}
-              channelById={channelById}
-            />
+            <MappingRow key={m.id} mapping={m} roleById={roleById} channelById={channelById} />
           ))}
         </div>
       )}
