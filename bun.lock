@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "roliep-polie-olie",
+      "name": "rolie-polie-olie",
       "dependencies": {
         "discord.js": "^14.16.0",
         "hono": "^4.6.0",

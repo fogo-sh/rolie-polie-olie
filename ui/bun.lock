@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "roliep-polie-olie-ui",
+      "name": "rolie-polie-olie-ui",
       "dependencies": {
         "hono": "^4.12.0",
         "react": "^18.3.1",

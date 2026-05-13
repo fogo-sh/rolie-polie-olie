@@ -1,4 +1,4 @@
-# roliep-polie-olie
+# rolie-polie-olie
 
 A self-hosted Discord reaction-role management bot with a web admin UI. React to a message with an emoji and automatically receive a role — all managed through a clean browser interface, with Discord OAuth for admin access.
 
@@ -94,8 +94,8 @@ All env vars are prefixed with `RPO_`:
 
 ```bash
 # 1. Clone and enter the repo
-git clone https://github.com/fogo-sh/roliep-polie-olie
-cd roliep-polie-olie
+git clone https://github.com/fogo-sh/rolie-polie-olie
+cd rolie-polie-olie
 
 # 2. Copy and fill in environment variables
 cp .env.example .env
