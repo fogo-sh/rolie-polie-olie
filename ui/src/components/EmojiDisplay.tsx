@@ -68,10 +68,10 @@ export function EmojiDisplay({
         <span className="text-lg leading-none">{parsed.display}</span>
       )}
       <span
-        className={`text-[10px] uppercase tracking-wide transition-opacity ${
+        className={`text-[10px] uppercase tracking-wide ${
           copied
-            ? "text-amber-400 opacity-100"
-            : "text-stone-500 opacity-0 group-hover:opacity-100"
+            ? "inline text-amber-400"
+            : "hidden text-stone-500 group-hover:inline group-focus-visible:inline"
         }`}
       >
         {copied ? "copied" : "copy"}

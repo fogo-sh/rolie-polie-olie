@@ -191,22 +191,12 @@ async function action({
   }
 }
 
-function Layout({
-  user,
-  children,
-}: {
-  user?: Me;
-  children: React.ReactNode;
-}) {
+function Layout({ user, children }: { user?: Me; children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-stone-950 text-stone-100">
       <header className="border-b-2 border-stone-800 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <img
-            src="/rpo.webp"
-            alt=""
-            className="w-12 h-16 border-2 border-stone-700 object-cover"
-          />
+          <img src="/rpo.webp" alt="" className="w-12 h-16 object-cover" />
           <div>
             <h1 className="text-2xl font-bold text-amber-400">
               rolie-polie-olie
