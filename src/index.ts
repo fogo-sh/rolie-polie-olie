@@ -16,6 +16,23 @@ const uiRoot = `${import.meta.dir}/../ui/dist`;
 
 const app = new Hono()
   .route("/", api)
+  // Defence-in-depth path-safety check before hono/bun's serveStatic. That
+  // middleware already rejects `../` traversal in both raw and percent-encoded
+  // forms, but it passes percent-decoded null bytes (%00) through to Bun.file,
+  // which throws a 500 with a stack trace. Catch those (plus any other
+  // suspicious decoded characters) and serve index.html instead.
+  .use("/*", async (c, next) => {
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(c.req.path);
+    } catch {
+      return c.html(await Bun.file(`${uiRoot}/index.html`).text());
+    }
+    if (decoded.includes("\0") || decoded.includes("\\")) {
+      return c.html(await Bun.file(`${uiRoot}/index.html`).text());
+    }
+    await next();
+  })
   // Serve static UI assets, falling back to index.html for SPA routing.
   .use("/*", serveStatic({ root: uiRoot }))
   .use("/*", serveStatic({ root: uiRoot, path: "index.html" }));
