@@ -1,10 +1,4 @@
-import {
-  Client,
-  GatewayIntentBits,
-  Partials,
-  Events,
-  type Guild,
-} from "discord.js";
+import { Client, GatewayIntentBits, Partials, Events, type Guild } from "discord.js";
 import { getMappingsForMessage, upsertGuild } from "./db.js";
 import { emojiKey } from "./emoji.js";
 
@@ -79,7 +73,7 @@ export function createBot() {
         (m) =>
           m.emoji_key === key &&
           m.enabled &&
-          (m.mode === "toggle" || m.mode === "remove-on-unreact")
+          (m.mode === "toggle" || m.mode === "remove-on-unreact"),
       );
 
       for (const mapping of matching) {

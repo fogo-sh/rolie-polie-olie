@@ -1,12 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useFetcher } from "react-router";
-import {
-  api,
-  type GuildEmoji,
-  type Mapping,
-  type MessageInspect,
-  type Role,
-} from "../api.ts";
+import { api, type GuildEmoji, type Mapping, type MessageInspect, type Role } from "../api.ts";
 import { Field, inputClass, RoleSwatch } from "./ui.tsx";
 import { EmojiPicker } from "./EmojiPicker.tsx";
 
@@ -22,8 +16,7 @@ interface ActionResult {
   error?: string;
 }
 
-const MESSAGE_URL_RE =
-  /^https?:\/\/(?:[a-z]+\.)?discord\.com\/channels\/\d+\/\d+\/\d+$/i;
+const MESSAGE_URL_RE = /^https?:\/\/(?:[a-z]+\.)?discord\.com\/channels\/\d+\/\d+\/\d+$/i;
 
 type InspectState =
   | { kind: "idle" }
@@ -100,9 +93,7 @@ export function CreateMappingForm({ roles, guildEmojis, editing }: Props) {
   return (
     <section className="bg-stone-900 border-2 border-stone-700 p-6 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">
-          {isEdit ? "Edit mapping" : "New mapping"}
-        </h2>
+        <h2 className="text-lg font-semibold">{isEdit ? "Edit mapping" : "New mapping"}</h2>
         {isEdit && (
           <Link
             to={`/?guild=${editing!.guild_id}`}
@@ -121,30 +112,18 @@ export function CreateMappingForm({ roles, guildEmojis, editing }: Props) {
           successful save (clearing emoji picker / role select). In edit mode,
           key on the mapping id so switching between mappings remounts. */}
       <fetcher.Form
-        key={
-          isEdit
-            ? `edit-${editing!.id}`
-            : fetcher.data?.ok
-              ? `ok-${Date.now()}`
-              : "form"
-        }
+        key={isEdit ? `edit-${editing!.id}` : fetcher.data?.ok ? `ok-${Date.now()}` : "form"}
         method="post"
         className="space-y-4"
       >
-        <input
-          type="hidden"
-          name="intent"
-          value={isEdit ? "update-mapping" : "create-mapping"}
-        />
+        <input type="hidden" name="intent" value={isEdit ? "update-mapping" : "create-mapping"} />
         {isEdit && <input type="hidden" name="id" value={editing!.id} />}
 
         <Field label="Message link">
           {isEdit ? (
             // Locked in edit mode — changing the message would effectively make
             // it a different mapping. Use the existing one for context only.
-            <div className="text-sm font-mono text-stone-400 break-all">
-              {messageUrl}
-            </div>
+            <div className="text-sm font-mono text-stone-400 break-all">{messageUrl}</div>
           ) : (
             <input
               type="text"
@@ -174,24 +153,15 @@ export function CreateMappingForm({ roles, guildEmojis, editing }: Props) {
               No roles to show. The bot might not be in this server yet.
             </p>
           ) : (
-            <RoleSelect
-              roles={roles}
-              initialId={editing?.role_id ?? roles[0].id}
-            />
+            <RoleSelect roles={roles} initialId={editing?.role_id ?? roles[0].id} />
           )}
         </Field>
 
         <Field label="Mode">
-          <select
-            name="mode"
-            defaultValue={editing?.mode ?? "toggle"}
-            className={inputClass}
-          >
+          <select name="mode" defaultValue={editing?.mode ?? "toggle"} className={inputClass}>
             <option value="toggle">toggle: add on react, remove on unreact</option>
             <option value="add-only">add only: never takes the role back</option>
-            <option value="remove-on-unreact">
-              remove on unreact: only takes the role away
-            </option>
+            <option value="remove-on-unreact">remove on unreact: only takes the role away</option>
           </select>
         </Field>
 
@@ -208,11 +178,7 @@ export function CreateMappingForm({ roles, guildEmojis, editing }: Props) {
 
           {!isEdit && (
             <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                name="add_reaction"
-                className="w-4 h-4 accent-amber-500"
-              />
+              <input type="checkbox" name="add_reaction" className="w-4 h-4 accent-amber-500" />
               <span className="text-sm">Have the bot react too</span>
             </label>
           )}
@@ -223,11 +189,7 @@ export function CreateMappingForm({ roles, guildEmojis, editing }: Props) {
           disabled={isSubmitting || roles.length === 0}
           className="bg-amber-600 hover:bg-amber-500 text-stone-950 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-2 text-sm font-medium border-2 border-amber-400"
         >
-          {isSubmitting
-            ? "Saving"
-            : isEdit
-              ? "Save changes"
-              : "Save mapping"}
+          {isSubmitting ? "Saving" : isEdit ? "Save changes" : "Save mapping"}
         </button>
       </fetcher.Form>
     </section>
@@ -246,8 +208,7 @@ function InspectStatus({ state }: { state: InspectState }) {
       const n = state.data.reactions.length;
       return (
         <p className="text-xs text-amber-400 mt-1">
-          Found it in{" "}
-          <span className="text-stone-300">#{state.data.channel_name}</span>
+          Found it in <span className="text-stone-300">#{state.data.channel_name}</span>
           {n > 0 && `. ${n} reaction${n === 1 ? "" : "s"} already there.`}
         </p>
       );
@@ -263,8 +224,7 @@ function RoleSelect({ roles, initialId }: { roles: Role[]; initialId: string }) 
   // If the previously-selected role no longer exists (e.g. deleted in
   // Discord), fall back to the first role rather than rendering an empty
   // <select> that submits an empty role_id.
-  const fallback =
-    roles.find((r) => r.id === initialId)?.id ?? roles[0]?.id ?? "";
+  const fallback = roles.find((r) => r.id === initialId)?.id ?? roles[0]?.id ?? "";
   const [selectedId, setSelectedId] = useState(fallback);
   const selected = roles.find((r) => r.id === selectedId);
   return (

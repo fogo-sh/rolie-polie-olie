@@ -90,7 +90,7 @@ export function upsertGuild(id: string, name: string) {
   db.run(
     `INSERT INTO guilds (id, name) VALUES (?, ?)
      ON CONFLICT(id) DO UPDATE SET name = excluded.name`,
-    [id, name]
+    [id, name],
   );
 }
 
@@ -100,13 +100,17 @@ export function getGuilds(): Guild[] {
 
 export function getMappings(guildId?: string): RoleMapping[] {
   if (guildId) {
-    return db.query("SELECT * FROM role_mappings WHERE guild_id = ? ORDER BY created_at DESC").all(guildId) as RoleMapping[];
+    return db
+      .query("SELECT * FROM role_mappings WHERE guild_id = ? ORDER BY created_at DESC")
+      .all(guildId) as RoleMapping[];
   }
   return db.query("SELECT * FROM role_mappings ORDER BY created_at DESC").all() as RoleMapping[];
 }
 
 export function getMappingsForMessage(messageId: string): RoleMapping[] {
-  return db.query("SELECT * FROM role_mappings WHERE message_id = ? AND enabled = 1").all(messageId) as RoleMapping[];
+  return db
+    .query("SELECT * FROM role_mappings WHERE message_id = ? AND enabled = 1")
+    .all(messageId) as RoleMapping[];
 }
 
 export function createMapping(data: {
@@ -122,9 +126,20 @@ export function createMapping(data: {
   const result = db.run(
     `INSERT INTO role_mappings (guild_id, channel_id, message_id, message_url, emoji_key, role_id, mode, enabled)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [data.guild_id, data.channel_id, data.message_id, data.message_url, data.emoji_key, data.role_id, data.mode, data.enabled ? 1 : 0]
+    [
+      data.guild_id,
+      data.channel_id,
+      data.message_id,
+      data.message_url,
+      data.emoji_key,
+      data.role_id,
+      data.mode,
+      data.enabled ? 1 : 0,
+    ],
   );
-  return db.query("SELECT * FROM role_mappings WHERE id = ?").get(result.lastInsertRowid) as RoleMapping;
+  return db
+    .query("SELECT * FROM role_mappings WHERE id = ?")
+    .get(result.lastInsertRowid) as RoleMapping;
 }
 
 export function updateMapping(
@@ -138,10 +153,22 @@ export function updateMapping(
 ) {
   const fields: string[] = [];
   const values: SQLQueryBindings[] = [];
-  if (data.mode !== undefined) { fields.push("mode = ?"); values.push(data.mode); }
-  if (data.enabled !== undefined) { fields.push("enabled = ?"); values.push(data.enabled ? 1 : 0); }
-  if (data.role_id !== undefined) { fields.push("role_id = ?"); values.push(data.role_id); }
-  if (data.emoji_key !== undefined) { fields.push("emoji_key = ?"); values.push(data.emoji_key); }
+  if (data.mode !== undefined) {
+    fields.push("mode = ?");
+    values.push(data.mode);
+  }
+  if (data.enabled !== undefined) {
+    fields.push("enabled = ?");
+    values.push(data.enabled ? 1 : 0);
+  }
+  if (data.role_id !== undefined) {
+    fields.push("role_id = ?");
+    values.push(data.role_id);
+  }
+  if (data.emoji_key !== undefined) {
+    fields.push("emoji_key = ?");
+    values.push(data.emoji_key);
+  }
   if (fields.length === 0) return;
   values.push(id);
   db.run(`UPDATE role_mappings SET ${fields.join(", ")} WHERE id = ?`, values);
@@ -166,16 +193,12 @@ export function createSession(data: {
      VALUES (?, ?, ?, ?, datetime('now', ?))`,
     [data.id, data.user_id, data.username, data.avatar, `+${SESSION_TTL_DAYS} days`],
   );
-  return db
-    .query("SELECT * FROM sessions WHERE id = ?")
-    .get(data.id) as Session;
+  return db.query("SELECT * FROM sessions WHERE id = ?").get(data.id) as Session;
 }
 
 export function getSession(id: string): Session | null {
   return db
-    .query(
-      "SELECT * FROM sessions WHERE id = ? AND expires_at > datetime('now')",
-    )
+    .query("SELECT * FROM sessions WHERE id = ? AND expires_at > datetime('now')")
     .get(id) as Session | null;
 }
 
@@ -188,17 +211,15 @@ export function deleteSession(id: string) {
 const OAUTH_STATE_TTL_MINUTES = 10;
 
 export function createOAuthState(state: string) {
-  db.run(
-    `INSERT INTO oauth_states (state, expires_at) VALUES (?, datetime('now', ?))`,
-    [state, `+${OAUTH_STATE_TTL_MINUTES} minutes`],
-  );
+  db.run(`INSERT INTO oauth_states (state, expires_at) VALUES (?, datetime('now', ?))`, [
+    state,
+    `+${OAUTH_STATE_TTL_MINUTES} minutes`,
+  ]);
 }
 
 export function consumeOAuthState(state: string): boolean {
   const row = db
-    .query(
-      "SELECT state FROM oauth_states WHERE state = ? AND expires_at > datetime('now')",
-    )
+    .query("SELECT state FROM oauth_states WHERE state = ? AND expires_at > datetime('now')")
     .get(state) as { state: string } | null;
   if (!row) return false;
   db.run("DELETE FROM oauth_states WHERE state = ?", [state]);

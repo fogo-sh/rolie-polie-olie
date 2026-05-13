@@ -3,10 +3,7 @@ import type { AppType } from "../../src/api.ts";
 
 // All protected routes can return 401 from the requireAuth middleware. Hono
 // can't infer middleware responses, so we declare it globally for the client.
-type AppWithAuth = ApplyGlobalResponse<
-  AppType,
-  { 401: { json: { error: string } } }
->;
+type AppWithAuth = ApplyGlobalResponse<AppType, { 401: { json: { error: string } } }>;
 
 // The session cookie is httpOnly and same-origin, so we just need to make sure
 // fetch sends it along. `credentials: 'include'` is required because the hono
@@ -21,12 +18,8 @@ export const api = hc<AppWithAuth>("/", {
 // shapes.
 type ArrayOf<T> = Extract<T, readonly unknown[]>;
 
-export type Guild = ArrayOf<
-  InferResponseType<typeof api.api.guilds.$get>
->[number];
-export type Mapping = ArrayOf<
-  InferResponseType<typeof api.api.mappings.$get>
->[number];
+export type Guild = ArrayOf<InferResponseType<typeof api.api.guilds.$get>>[number];
+export type Mapping = ArrayOf<InferResponseType<typeof api.api.mappings.$get>>[number];
 
 type MeResponse = InferResponseType<typeof api.api.auth.me.$get>;
 export type Me = Extract<MeResponse, { user_id: string }>;
@@ -56,12 +49,7 @@ export type MessageReaction = MessageInspect["reactions"][number];
  */
 export async function unwrap<T extends Response>(
   res: T,
-): Promise<
-  Exclude<
-    T extends { json: () => Promise<infer J> } ? J : never,
-    { error: string }
-  >
-> {
+): Promise<Exclude<T extends { json: () => Promise<infer J> } ? J : never, { error: string }>> {
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
     try {

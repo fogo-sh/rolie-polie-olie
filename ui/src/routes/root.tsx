@@ -76,12 +76,9 @@ async function loader({ request }: LoaderFunctionArgs): Promise<LoaderData> {
     // If we're editing, the mapping's guild wins over the query param so the
     // right roles/emojis/channels load even if the user navigated via a bare
     // /?edit=<id> URL.
-    const editing =
-      editId !== null ? mappings.find((m) => m.id === editId) : undefined;
+    const editing = editId !== null ? mappings.find((m) => m.id === editId) : undefined;
     const selectedGuild =
-      editing?.guild_id ||
-      selectedGuildParam ||
-      (guilds.length > 0 ? guilds[0].id : "");
+      editing?.guild_id || selectedGuildParam || (guilds.length > 0 ? guilds[0].id : "");
 
     let roles: Role[] = [];
     let guildEmojis: GuildEmoji[] = [];
@@ -143,9 +140,7 @@ interface ActionResult {
   error?: string;
 }
 
-async function action({
-  request,
-}: ActionFunctionArgs): Promise<ActionResult | Response> {
+async function action({ request }: ActionFunctionArgs): Promise<ActionResult | Response> {
   const formData = await request.formData();
   const intent = formData.get("intent");
 
@@ -163,10 +158,7 @@ async function action({
               message_url: String(formData.get("message_url") ?? ""),
               emoji_key: String(formData.get("emoji_key") ?? ""),
               role_id: String(formData.get("role_id") ?? ""),
-              mode: formData.get("mode") as
-                | "toggle"
-                | "add-only"
-                | "remove-on-unreact",
+              mode: formData.get("mode") as "toggle" | "add-only" | "remove-on-unreact",
               enabled: formData.get("enabled") === "on",
               add_reaction: formData.get("add_reaction") === "on",
             },
@@ -202,10 +194,7 @@ async function action({
             json: {
               emoji_key: String(formData.get("emoji_key") ?? ""),
               role_id: String(formData.get("role_id") ?? ""),
-              mode: formData.get("mode") as
-                | "toggle"
-                | "add-only"
-                | "remove-on-unreact",
+              mode: formData.get("mode") as "toggle" | "add-only" | "remove-on-unreact",
               enabled: formData.get("enabled") === "on",
             },
           })
@@ -225,9 +214,7 @@ async function action({
 
     case "delete-mapping": {
       const id = Number(formData.get("id"));
-      await api.api.mappings[":id"]
-        .$delete({ param: { id: String(id) } })
-        .then(unwrap);
+      await api.api.mappings[":id"].$delete({ param: { id: String(id) } }).then(unwrap);
       return { ok: true };
     }
 
@@ -252,12 +239,8 @@ function Layout({
         <div className="flex items-center gap-4">
           <img src="/rpo.webp" alt="" className="w-12 h-16 object-cover" />
           <div>
-            <h1 className="text-2xl font-bold text-amber-400">
-              rolie-polie-olie
-            </h1>
-            <p className="text-sm text-stone-400">
-              React to a message, get a role.
-            </p>
+            <h1 className="text-2xl font-bold text-amber-400">rolie-polie-olie</h1>
+            <p className="text-sm text-stone-400">React to a message, get a role.</p>
           </div>
         </div>
         {user && (
@@ -284,10 +267,7 @@ function Layout({
           </div>
         )}
       </header>
-      <main
-        className="max-w-4xl mx-auto px-6 py-8 space-y-8"
-        aria-busy={busy}
-      >
+      <main className="max-w-4xl mx-auto px-6 py-8 space-y-8" aria-busy={busy}>
         {children}
       </main>
     </div>
@@ -318,8 +298,8 @@ function LoginScreen({ loginError }: { loginError?: string }) {
       <section className="bg-stone-900 border-2 border-stone-700 p-8 space-y-4 text-center">
         <h2 className="text-lg font-semibold">Who are you?</h2>
         <p className="text-sm text-stone-400">
-          Log in with Discord. The bot owner has to add your user ID to the
-          allowlist before this works.
+          Log in with Discord. The bot owner has to add your user ID to the allowlist before this
+          works.
         </p>
         {loginError && (
           <div className="bg-stone-900 border-2 border-red-700 text-red-300 px-4 py-3 text-sm">
@@ -337,13 +317,7 @@ function LoginScreen({ loginError }: { loginError?: string }) {
   );
 }
 
-function GuildList({
-  guilds,
-  selectedGuild,
-}: {
-  guilds: Guild[];
-  selectedGuild: string;
-}) {
+function GuildList({ guilds, selectedGuild }: { guilds: Guild[]; selectedGuild: string }) {
   return (
     <section className="bg-stone-900 border-2 border-stone-700 p-6 space-y-3">
       <h2 className="text-lg font-semibold">Servers</h2>
@@ -371,9 +345,7 @@ function GuildList({
                   <div className="font-medium">{g.name}</div>
                   <div className="text-xs text-stone-400">{g.id}</div>
                 </button>
-                {isSelected && (
-                  <span className="text-xs text-amber-400">picked</span>
-                )}
+                {isSelected && <span className="text-xs text-amber-400">picked</span>}
               </Form>
             );
           })}
@@ -403,12 +375,7 @@ function MappingsList({
       ) : (
         <div className="space-y-2">
           {mappings.map((m) => (
-            <MappingRow
-              key={m.id}
-              mapping={m}
-              roleById={roleById}
-              channelById={channelById}
-            />
+            <MappingRow key={m.id} mapping={m} roleById={roleById} channelById={channelById} />
           ))}
         </div>
       )}
@@ -429,33 +396,18 @@ function Component() {
     return <LoginScreen loginError={data.loginError} />;
   }
 
-  const {
-    user,
-    guilds,
-    mappings,
-    roles,
-    guildEmojis,
-    channels,
-    selectedGuild,
-    editing,
-    error,
-  } = data;
+  const { user, guilds, mappings, roles, guildEmojis, channels, selectedGuild, editing, error } =
+    data;
 
   return (
     <Layout user={user} busy={busy}>
       {error && (
-        <div className="bg-stone-900 border-2 border-red-700 text-red-300 px-4 py-3">
-          {error}
-        </div>
+        <div className="bg-stone-900 border-2 border-red-700 text-red-300 px-4 py-3">{error}</div>
       )}
 
       <GuildList guilds={guilds} selectedGuild={selectedGuild} />
       {selectedGuild && (
-        <CreateMappingForm
-          roles={roles}
-          guildEmojis={guildEmojis}
-          editing={editing}
-        />
+        <CreateMappingForm roles={roles} guildEmojis={guildEmojis} editing={editing} />
       )}
       <MappingsList mappings={mappings} roles={roles} channels={channels} />
     </Layout>

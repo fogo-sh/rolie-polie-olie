@@ -14,9 +14,7 @@ export function Field({
 }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-stone-300 mb-1">
-        {label}
-      </label>
+      <label className="block text-sm font-medium text-stone-300 mb-1">{label}</label>
       {children}
       {hint && <p className="text-xs text-stone-500 mt-1">{hint}</p>}
     </div>

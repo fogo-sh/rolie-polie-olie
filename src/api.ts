@@ -44,20 +44,17 @@ interface UpdateMappingInput {
 // Lightweight JSON validators. Using `hono/validator` is what wires up the
 // body types for the RPC client; the runtime check is intentionally minimal
 // since this is a single-tenant admin API.
-const createMappingValidator = validator(
-  "json",
-  (value, c): CreateMappingInput | Response => {
-    const v = value as Partial<CreateMappingInput>;
-    if (
-      typeof v?.message_url !== "string" ||
-      typeof v?.emoji_key !== "string" ||
-      typeof v?.role_id !== "string"
-    ) {
-      return c.json({ error: "Invalid body" }, 400);
-    }
-    return v as CreateMappingInput;
-  },
-);
+const createMappingValidator = validator("json", (value, c): CreateMappingInput | Response => {
+  const v = value as Partial<CreateMappingInput>;
+  if (
+    typeof v?.message_url !== "string" ||
+    typeof v?.emoji_key !== "string" ||
+    typeof v?.role_id !== "string"
+  ) {
+    return c.json({ error: "Invalid body" }, 400);
+  }
+  return v as CreateMappingInput;
+});
 
 const updateMappingValidator = validator(
   "json",
@@ -94,9 +91,7 @@ export function createApi(discordClient: Client) {
   const publicUrl = requireEnv("RPO_PUBLIC_URL").replace(/\/$/, "");
   const allowlist = parseAllowlist(process.env.RPO_ADMIN_USER_IDS);
   if (allowlist.size === 0) {
-    throw new Error(
-      "RPO_ADMIN_USER_IDS must contain at least one Discord user ID",
-    );
+    throw new Error("RPO_ADMIN_USER_IDS must contain at least one Discord user ID");
   }
 
   const redirectUri = `${publicUrl}/api/auth/discord/callback`;
@@ -105,10 +100,7 @@ export function createApi(discordClient: Client) {
   // Auth middleware: resolves the session from the cookie and rejects with 401
   // if the request is not authenticated. Only applied to /api/* routes that
   // require auth; the OAuth routes themselves are unprotected.
-  const requireAuth: MiddlewareHandler<{ Variables: Variables }> = async (
-    c,
-    next,
-  ) => {
+  const requireAuth: MiddlewareHandler<{ Variables: Variables }> = async (c, next) => {
     const sid = getCookie(c, SESSION_COOKIE);
     const session = sid ? getSession(sid) : null;
     if (!session) return c.json({ error: "Unauthorized" }, 401);
@@ -143,8 +135,7 @@ export function createApi(discordClient: Client) {
 
       if (errParam) return c.redirect(`/?login_error=${encodeURIComponent(errParam)}`);
       if (!code || !state) return c.redirect("/?login_error=missing_params");
-      if (!consumeOAuthState(state))
-        return c.redirect("/?login_error=invalid_state");
+      if (!consumeOAuthState(state)) return c.redirect("/?login_error=invalid_state");
 
       // Exchange code for token.
       const tokenRes = await fetch("https://discord.com/api/oauth2/token", {
@@ -281,8 +272,7 @@ export function createApi(discordClient: Client) {
         const channels = await guild.channels.fetch();
         const list = Array.from(channels.values())
           .filter(
-            (ch): ch is NonNullable<typeof ch> =>
-              ch !== null && ch.type === ChannelType.GuildText,
+            (ch): ch is NonNullable<typeof ch> => ch !== null && ch.type === ChannelType.GuildText,
           )
           .map((ch) => ({ id: ch.id, name: ch.name }))
           .sort((a, b) => a.name.localeCompare(b.name));
@@ -364,10 +354,7 @@ export function createApi(discordClient: Client) {
           }
         }
       } catch {
-        return c.json(
-          { error: "Could not fetch message. Check bot permissions." },
-          400,
-        );
+        return c.json({ error: "Could not fetch message. Check bot permissions." }, 400);
       }
 
       try {
@@ -384,26 +371,18 @@ export function createApi(discordClient: Client) {
         return c.json(mapping, 201);
       } catch (err) {
         if (err instanceof Error && err.message.includes("UNIQUE")) {
-          return c.json(
-            { error: "A mapping for this message and emoji already exists" },
-            409,
-          );
+          return c.json({ error: "A mapping for this message and emoji already exists" }, 409);
         }
         return c.json({ error: "Failed to create mapping" }, 500);
       }
     })
 
-    .patch(
-      "/api/mappings/:id",
-      requireAuth,
-      updateMappingValidator,
-      (c) => {
-        const id = Number(c.req.param("id"));
-        if (Number.isNaN(id)) return c.json({ error: "Invalid ID" }, 400);
-        updateMapping(id, c.req.valid("json"));
-        return c.json({ success: true });
-      },
-    )
+    .patch("/api/mappings/:id", requireAuth, updateMappingValidator, (c) => {
+      const id = Number(c.req.param("id"));
+      if (Number.isNaN(id)) return c.json({ error: "Invalid ID" }, 400);
+      updateMapping(id, c.req.valid("json"));
+      return c.json({ success: true });
+    })
 
     .delete("/api/mappings/:id", requireAuth, (c) => {
       const id = Number(c.req.param("id"));
