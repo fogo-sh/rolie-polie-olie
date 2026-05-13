@@ -12,9 +12,9 @@ interface Props {
 }
 
 const MODE_BADGE: Record<Mapping["mode"], string> = {
-  toggle: "bg-blue-900 text-blue-300",
-  "add-only": "bg-green-900 text-green-300",
-  "remove-on-unreact": "bg-orange-900 text-orange-300",
+  toggle: "bg-stone-800 text-amber-300 border-amber-700",
+  "add-only": "bg-stone-800 text-stone-300 border-stone-600",
+  "remove-on-unreact": "bg-stone-800 text-red-300 border-red-700",
 };
 
 export function MappingRow({ mapping, roleById, channelById }: Props) {
@@ -33,39 +33,39 @@ export function MappingRow({ mapping, roleById, channelById }: Props) {
   const channel = channelById.get(mapping.channel_id);
 
   return (
-    <div className="border border-gray-700 rounded p-4 space-y-2">
+    <div className="border-2 border-stone-700 p-4 space-y-2">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1 min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <EmojiDisplay emojiKey={mapping.emoji_key} />
-            <span className="text-gray-500">→</span>
+            <span className="text-stone-500">→</span>
             {role ? (
               <span className="flex items-center gap-1.5 text-sm">
                 <RoleSwatch color={role.color} />
-                <span className="text-gray-200">{role.name}</span>
+                <span className="text-stone-200">{role.name}</span>
               </span>
             ) : (
-              <span className="text-sm text-gray-400 font-mono">
+              <span className="text-sm text-stone-400 font-mono">
                 role {mapping.role_id}
               </span>
             )}
             <span
-              className={`text-xs px-2 py-0.5 rounded ${MODE_BADGE[mapping.mode]}`}
+              className={`text-xs px-2 py-0.5 border ${MODE_BADGE[mapping.mode]}`}
             >
               {mapping.mode}
             </span>
           </div>
-          <div className="flex items-center gap-2 text-xs text-gray-400">
+          <div className="flex items-center gap-2 text-xs text-stone-400">
             {channel && (
-              <span className="text-gray-500">#{channel.name}</span>
+              <span className="text-stone-500">#{channel.name}</span>
             )}
             <a
               href={mapping.message_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-indigo-400 hover:underline truncate"
+              className="text-amber-400 hover:underline truncate"
             >
-              view message ↗
+              open in Discord ↗
             </a>
           </div>
         </div>
@@ -76,13 +76,13 @@ export function MappingRow({ mapping, roleById, channelById }: Props) {
             <input type="hidden" name="enabled" value={String(!enabled)} />
             <button
               type="submit"
-              className={`text-xs px-2 py-1 rounded ${
+              className={`text-xs px-2 py-1 border-2 ${
                 enabled
-                  ? "bg-green-800 text-green-300 hover:bg-green-700"
-                  : "bg-gray-700 text-gray-400 hover:bg-gray-600"
+                  ? "bg-amber-700 text-amber-100 border-amber-500 hover:bg-amber-600"
+                  : "bg-stone-800 text-stone-400 border-stone-700 hover:bg-stone-700"
               }`}
             >
-              {enabled ? "Enabled" : "Disabled"}
+              {enabled ? "on" : "off"}
             </button>
           </toggleFetcher.Form>
           <deleteFetcher.Form
@@ -95,9 +95,9 @@ export function MappingRow({ mapping, roleById, channelById }: Props) {
             <input type="hidden" name="id" value={mapping.id} />
             <button
               type="submit"
-              className="text-xs px-2 py-1 rounded bg-red-900 text-red-300 hover:bg-red-800"
+              className="text-xs px-2 py-1 border-2 border-red-700 bg-stone-800 text-red-300 hover:bg-red-900"
             >
-              Delete
+              delete
             </button>
           </deleteFetcher.Form>
         </div>

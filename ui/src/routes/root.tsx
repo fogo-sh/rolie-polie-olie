@@ -40,11 +40,11 @@ interface UnauthedData {
 type LoaderData = AuthedData | UnauthedData;
 
 const LOGIN_ERROR_MESSAGES: Record<string, string> = {
-  not_authorized: "Your Discord account isn't on the admin allowlist.",
-  invalid_state: "Login session expired. Please try again.",
-  missing_params: "Discord didn't return a code. Please try again.",
-  token_exchange_failed: "Couldn't exchange the OAuth code with Discord.",
-  user_fetch_failed: "Couldn't fetch your Discord profile.",
+  not_authorized: "Your Discord account isn't on the allowlist for this bot.",
+  invalid_state: "That login link expired. Try again.",
+  missing_params: "Discord didn't send back a code. Try again.",
+  token_exchange_failed: "Discord rejected the login. Try again.",
+  user_fetch_failed: "Couldn't read your Discord profile. Try again.",
 };
 
 async function loader({ request }: LoaderFunctionArgs): Promise<LoaderData> {
@@ -199,13 +199,22 @@ function Layout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
-      <header className="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-indigo-400">
-            rolie-polie-olie
-          </h1>
-          <p className="text-sm text-gray-400">Discord reaction-role manager</p>
+    <div className="min-h-screen bg-stone-950 text-stone-100">
+      <header className="border-b-2 border-stone-800 px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <img
+            src="/rpo.webp"
+            alt=""
+            className="w-12 h-16 border-2 border-stone-700 object-cover"
+          />
+          <div>
+            <h1 className="text-2xl font-bold text-amber-400">
+              rolie-polie-olie
+            </h1>
+            <p className="text-sm text-stone-400">
+              React to a message, get a role.
+            </p>
+          </div>
         </div>
         {user && (
           <div className="flex items-center gap-3 text-sm">
@@ -214,16 +223,16 @@ function Layout({
                 <img
                   src={`https://cdn.discordapp.com/avatars/${user.user_id}/${user.avatar}.png?size=32`}
                   alt=""
-                  className="w-7 h-7 rounded-full"
+                  className="w-7 h-7 border-2 border-stone-700"
                 />
               )}
-              <span className="text-gray-300">{user.username}</span>
+              <span className="text-stone-300">{user.username}</span>
             </div>
             <Form method="post">
               <input type="hidden" name="intent" value="logout" />
               <button
                 type="submit"
-                className="text-xs px-3 py-1.5 rounded bg-gray-800 hover:bg-gray-700 border border-gray-700"
+                className="text-xs px-3 py-1.5 bg-stone-900 hover:bg-stone-800 border-2 border-stone-700"
               >
                 Sign out
               </button>
@@ -239,21 +248,22 @@ function Layout({
 function LoginScreen({ loginError }: { loginError?: string }) {
   return (
     <Layout>
-      <section className="bg-gray-900 rounded-lg p-8 space-y-4 text-center">
-        <h2 className="text-lg font-semibold">Sign in</h2>
-        <p className="text-sm text-gray-400">
-          Sign in with Discord to manage reaction-role mappings.
+      <section className="bg-stone-900 border-2 border-stone-700 p-8 space-y-4 text-center">
+        <h2 className="text-lg font-semibold">Who are you?</h2>
+        <p className="text-sm text-stone-400">
+          Log in with Discord. The bot owner has to add your user ID to the
+          allowlist before this works.
         </p>
         {loginError && (
-          <div className="bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded text-sm">
+          <div className="bg-stone-900 border-2 border-red-700 text-red-300 px-4 py-3 text-sm">
             {loginError}
           </div>
         )}
         <a
           href="/api/auth/discord/login"
-          className="inline-block bg-indigo-600 hover:bg-indigo-500 px-6 py-2 rounded text-sm font-medium"
+          className="inline-block bg-amber-600 hover:bg-amber-500 text-stone-950 px-6 py-2 text-sm font-medium border-2 border-amber-400"
         >
-          Continue with Discord
+          Log in with Discord
         </a>
       </section>
     </Layout>
@@ -268,11 +278,11 @@ function GuildList({
   selectedGuild: string;
 }) {
   return (
-    <section className="bg-gray-900 rounded-lg p-6 space-y-3">
-      <h2 className="text-lg font-semibold">Connected Guilds</h2>
+    <section className="bg-stone-900 border-2 border-stone-700 p-6 space-y-3">
+      <h2 className="text-lg font-semibold">Servers</h2>
       {guilds.length === 0 ? (
-        <p className="text-gray-400 text-sm">
-          No guilds found. Add the bot to a server first.
+        <p className="text-stone-400 text-sm">
+          The bot isn't in any servers yet. Invite it to one and come back.
         </p>
       ) : (
         <div className="space-y-2">
@@ -283,19 +293,19 @@ function GuildList({
                 method="get"
                 key={g.id}
                 replace
-                className={`flex items-center justify-between p-3 rounded border cursor-pointer transition-colors ${
+                className={`flex items-center justify-between p-3 border-2 cursor-pointer ${
                   isSelected
-                    ? "border-indigo-500 bg-indigo-900/20"
-                    : "border-gray-700 hover:border-gray-600"
+                    ? "border-amber-500 bg-stone-800"
+                    : "border-stone-700 hover:border-stone-500"
                 }`}
               >
                 <input type="hidden" name="guild" value={g.id} />
                 <button type="submit" className="flex-1 text-left">
                   <div className="font-medium">{g.name}</div>
-                  <div className="text-xs text-gray-400">{g.id}</div>
+                  <div className="text-xs text-stone-400">{g.id}</div>
                 </button>
                 {isSelected && (
-                  <span className="text-xs text-indigo-400">Selected</span>
+                  <span className="text-xs text-amber-400">picked</span>
                 )}
               </Form>
             );
@@ -319,10 +329,10 @@ function MappingsList({
   const channelById = new Map(channels.map((c) => [c.id, c] as const));
 
   return (
-    <section className="bg-gray-900 rounded-lg p-6 space-y-3">
-      <h2 className="text-lg font-semibold">Reaction-Role Mappings</h2>
+    <section className="bg-stone-900 border-2 border-stone-700 p-6 space-y-3">
+      <h2 className="text-lg font-semibold">Mappings</h2>
       {mappings.length === 0 ? (
-        <p className="text-gray-400 text-sm">No mappings yet.</p>
+        <p className="text-stone-400 text-sm">Nothing here yet.</p>
       ) : (
         <div className="space-y-2">
           {mappings.map((m) => (
@@ -362,12 +372,12 @@ function Component() {
   return (
     <Layout user={user}>
       {error && (
-        <div className="bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded">
+        <div className="bg-stone-900 border-2 border-red-700 text-red-300 px-4 py-3">
           {error}
         </div>
       )}
 
-      {isLoading && <p className="text-gray-400">Loading...</p>}
+      {isLoading && <p className="text-stone-400">Loading</p>}
 
       {!isLoading && (
         <>

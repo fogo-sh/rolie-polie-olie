@@ -19,7 +19,8 @@ interface ActionResult {
   error?: string;
 }
 
-const MESSAGE_URL_RE = /^https?:\/\/(?:[a-z]+\.)?discord\.com\/channels\/\d+\/\d+\/\d+$/i;
+const MESSAGE_URL_RE =
+  /^https?:\/\/(?:[a-z]+\.)?discord\.com\/channels\/\d+\/\d+\/\d+$/i;
 
 type InspectState =
   | { kind: "idle" }
@@ -80,10 +81,8 @@ export function CreateMappingForm({ roles, guildEmojis }: Props) {
     };
   }, [messageUrl]);
 
-  // Reset the form after a successful submission (the loader-driven mappings
-  // list will repopulate from the action's revalidation).
-  // useFetcher state goes: idle -> submitting -> loading -> idle. We watch for
-  // idle + a successful result and clear.
+  // Reset the form after a successful submission. The loader-driven mappings
+  // list will repopulate from the action's revalidation.
   useEffect(() => {
     if (fetcher.state === "idle" && fetcher.data?.ok) {
       setMessageUrl("");
@@ -92,10 +91,10 @@ export function CreateMappingForm({ roles, guildEmojis }: Props) {
   }, [fetcher.state, fetcher.data]);
 
   return (
-    <section className="bg-gray-900 rounded-lg p-6 space-y-4">
-      <h2 className="text-lg font-semibold">Create Reaction-Role Mapping</h2>
+    <section className="bg-stone-900 border-2 border-stone-700 p-6 space-y-4">
+      <h2 className="text-lg font-semibold">New mapping</h2>
       {formError && (
-        <div className="bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded text-sm">
+        <div className="bg-stone-900 border-2 border-red-700 text-red-300 px-4 py-3 text-sm">
           {formError}
         </div>
       )}
@@ -108,7 +107,7 @@ export function CreateMappingForm({ roles, guildEmojis }: Props) {
       >
         <input type="hidden" name="intent" value="create-mapping" />
 
-        <Field label="Discord Message URL">
+        <Field label="Message link">
           <input
             type="text"
             name="message_url"
@@ -131,8 +130,8 @@ export function CreateMappingForm({ roles, guildEmojis }: Props) {
 
         <Field label="Role">
           {roles.length === 0 ? (
-            <p className="text-sm text-yellow-400">
-              No roles available. Make sure the bot has access to this guild.
+            <p className="text-sm text-amber-400">
+              No roles to show. The bot might not be in this server yet.
             </p>
           ) : (
             <RoleSelect roles={roles} />
@@ -141,9 +140,11 @@ export function CreateMappingForm({ roles, guildEmojis }: Props) {
 
         <Field label="Mode">
           <select name="mode" defaultValue="toggle" className={inputClass}>
-            <option value="toggle">Toggle (add on react, remove on unreact)</option>
-            <option value="add-only">Add only (never removes role)</option>
-            <option value="remove-on-unreact">Remove on unreact</option>
+            <option value="toggle">toggle: add on react, remove on unreact</option>
+            <option value="add-only">add only: never takes the role back</option>
+            <option value="remove-on-unreact">
+              remove on unreact: only takes the role away
+            </option>
           </select>
         </Field>
 
@@ -153,7 +154,7 @@ export function CreateMappingForm({ roles, guildEmojis }: Props) {
               type="checkbox"
               name="enabled"
               defaultChecked
-              className="w-4 h-4 accent-indigo-500"
+              className="w-4 h-4 accent-amber-500"
             />
             <span className="text-sm">Enabled</span>
           </label>
@@ -162,18 +163,18 @@ export function CreateMappingForm({ roles, guildEmojis }: Props) {
             <input
               type="checkbox"
               name="add_reaction"
-              className="w-4 h-4 accent-indigo-500"
+              className="w-4 h-4 accent-amber-500"
             />
-            <span className="text-sm">Add bot reaction to message</span>
+            <span className="text-sm">Have the bot react too</span>
           </label>
         </div>
 
         <button
           type="submit"
           disabled={isSubmitting || roles.length === 0}
-          className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-2 rounded text-sm font-medium"
+          className="bg-amber-600 hover:bg-amber-500 text-stone-950 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-2 text-sm font-medium border-2 border-amber-400"
         >
-          {isSubmitting ? "Creating..." : "Create Mapping"}
+          {isSubmitting ? "Saving" : "Save mapping"}
         </button>
       </fetcher.Form>
     </section>
@@ -185,17 +186,19 @@ function InspectStatus({ state }: { state: InspectState }) {
     case "idle":
       return null;
     case "loading":
-      return <p className="text-xs text-gray-500 mt-1">Loading message…</p>;
+      return <p className="text-xs text-stone-500 mt-1">Checking the link</p>;
     case "error":
-      return <p className="text-xs text-red-400 mt-1">⚠ {state.message}</p>;
-    case "ok":
+      return <p className="text-xs text-red-400 mt-1">{state.message}</p>;
+    case "ok": {
+      const n = state.data.reactions.length;
       return (
-        <p className="text-xs text-green-400 mt-1">
-          ✓ Found in <span className="text-gray-300">#{state.data.channel_name}</span>
-          {state.data.reactions.length > 0 &&
-            ` · ${state.data.reactions.length} reaction${state.data.reactions.length === 1 ? "" : "s"}`}
+        <p className="text-xs text-amber-400 mt-1">
+          Found it in{" "}
+          <span className="text-stone-300">#{state.data.channel_name}</span>
+          {n > 0 && `. ${n} reaction${n === 1 ? "" : "s"} already there.`}
         </p>
       );
+    }
   }
 }
 

@@ -60,7 +60,7 @@ export function EmojiDisplay({
       type="button"
       onClick={copy}
       title={`Click to copy: ${emojiKey}`}
-      className={`group inline-flex items-center gap-1 rounded px-1 -mx-1 hover:bg-gray-800 cursor-pointer ${className}`}
+      className={`group inline-flex items-center gap-1 px-1 -mx-1 hover:bg-stone-800 cursor-pointer ${className}`}
     >
       {parsed.kind === "custom" && parsed.url ? (
         <img src={parsed.url} alt={parsed.display} className="w-5 h-5" />
@@ -70,8 +70,8 @@ export function EmojiDisplay({
       <span
         className={`text-[10px] uppercase tracking-wide transition-opacity ${
           copied
-            ? "text-green-400 opacity-100"
-            : "text-gray-500 opacity-0 group-hover:opacity-100"
+            ? "text-amber-400 opacity-100"
+            : "text-stone-500 opacity-0 group-hover:opacity-100"
         }`}
       >
         {copied ? "copied" : "copy"}

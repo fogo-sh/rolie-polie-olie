@@ -42,8 +42,8 @@ export function EmojiPicker({ name, reactions = [], guildEmojis = [] }: Props) {
       {/* Existing reactions */}
       {reactions.length > 0 && (
         <div>
-          <div className="text-xs text-gray-400 mb-2">
-            Already on this message — click to pick:
+          <div className="text-xs text-stone-400 mb-2">
+            Already on the message. Pick one:
           </div>
           <div className="flex flex-wrap gap-2">
             {reactions.map((r) => (
@@ -63,7 +63,7 @@ export function EmojiPicker({ name, reactions = [], guildEmojis = [] }: Props) {
       {/* Guild custom emoji grid */}
       {guildEmojis.length > 0 && (
         <details className="text-sm">
-          <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-300">
+          <summary className="text-xs text-stone-400 cursor-pointer hover:text-stone-300">
             Server custom emojis ({guildEmojis.length})
           </summary>
           <div className="mt-2 space-y-2">
@@ -71,26 +71,28 @@ export function EmojiPicker({ name, reactions = [], guildEmojis = [] }: Props) {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search emojis…"
+              placeholder="Search by name"
               className={inputClass}
             />
-            <div className="max-h-48 overflow-y-auto grid grid-cols-8 gap-1 p-1 bg-gray-950/40 rounded">
+            <div className="max-h-48 overflow-y-auto grid grid-cols-8 gap-1 p-1 bg-stone-950 border-2 border-stone-800">
               {filteredGuild.map((e) => (
                 <button
                   key={e.id}
                   type="button"
                   onClick={() => setValue(e.key)}
                   title={`:${e.name}:`}
-                  className={`p-1.5 rounded hover:bg-gray-800 transition-colors ${
-                    e.key === value ? "ring-2 ring-indigo-500 bg-gray-800" : ""
+                  className={`p-1.5 hover:bg-stone-800 border-2 ${
+                    e.key === value
+                      ? "border-amber-500 bg-stone-800"
+                      : "border-transparent"
                   }`}
                 >
                   <img src={e.url} alt={e.name} className="w-6 h-6 mx-auto" />
                 </button>
               ))}
               {filteredGuild.length === 0 && (
-                <div className="col-span-8 text-xs text-gray-500 text-center py-4">
-                  No matches.
+                <div className="col-span-8 text-xs text-stone-500 text-center py-4">
+                  Nothing matches.
                 </div>
               )}
             </div>
@@ -100,8 +102,8 @@ export function EmojiPicker({ name, reactions = [], guildEmojis = [] }: Props) {
 
       {/* Free-text fallback */}
       <details className="text-sm">
-        <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-300">
-          Or enter manually
+        <summary className="text-xs text-stone-400 cursor-pointer hover:text-stone-300">
+          Type it instead
         </summary>
         <input
           type="text"
@@ -110,16 +112,17 @@ export function EmojiPicker({ name, reactions = [], guildEmojis = [] }: Props) {
           className={`mt-2 ${inputClass}`}
           placeholder="👍 or <:name:123456>"
         />
-        <p className="text-xs text-gray-500 mt-1">
-          Unicode emoji (paste the character) or custom in{" "}
-          <code>&lt;:name:id&gt;</code> / <code>&lt;a:name:id&gt;</code> form.
+        <p className="text-xs text-stone-500 mt-1">
+          Paste a unicode character, or a custom emoji in{" "}
+          <code>&lt;:name:id&gt;</code> form (animated:{" "}
+          <code>&lt;a:name:id&gt;</code>).
         </p>
       </details>
 
       {/* Selection confirmation */}
       {value && (
-        <div className="text-xs flex items-center gap-2 text-gray-300">
-          <span className="text-gray-500">Selected:</span>
+        <div className="text-xs flex items-center gap-2 text-stone-300">
+          <span className="text-stone-500">Picked:</span>
           {selectedReaction?.url || selectedGuildEmoji?.url ? (
             <img
               src={(selectedReaction?.url ?? selectedGuildEmoji?.url) || ""}
@@ -129,7 +132,7 @@ export function EmojiPicker({ name, reactions = [], guildEmojis = [] }: Props) {
           ) : (
             <span className="text-base">{value}</span>
           )}
-          <code className="text-gray-400">{value}</code>
+          <code className="text-stone-400">{value}</code>
         </div>
       )}
     </div>
@@ -153,10 +156,10 @@ function EmojiChip({
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-1.5 px-2 py-1 rounded text-sm transition-colors ${
+      className={`flex items-center gap-1.5 px-2 py-1 text-sm border-2 ${
         selected
-          ? "bg-indigo-700 text-white ring-2 ring-indigo-400"
-          : "bg-gray-800 hover:bg-gray-700 text-gray-200"
+          ? "bg-amber-600 text-stone-950 border-amber-400"
+          : "bg-stone-800 hover:bg-stone-700 text-stone-200 border-stone-700"
       }`}
     >
       {imageUrl ? (
@@ -165,7 +168,7 @@ function EmojiChip({
         <span className="text-base leading-none">{label}</span>
       )}
       {badge !== undefined && (
-        <span className="text-xs text-gray-400">{badge}</span>
+        <span className="text-xs text-stone-400">{badge}</span>
       )}
     </button>
   );
