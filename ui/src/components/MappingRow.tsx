@@ -1,6 +1,7 @@
 import { useFetcher } from "react-router";
 import type { GuildChannel, Mapping, Role } from "../api.ts";
 import { RoleSwatch } from "./ui.tsx";
+import { EmojiDisplay } from "./EmojiDisplay.tsx";
 
 interface Props {
   mapping: Mapping;
@@ -36,7 +37,7 @@ export function MappingRow({ mapping, roleById, channelById }: Props) {
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1 min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-lg leading-none">{mapping.emoji_key}</span>
+            <EmojiDisplay emojiKey={mapping.emoji_key} />
             <span className="text-gray-500">→</span>
             {role ? (
               <span className="flex items-center gap-1.5 text-sm">
