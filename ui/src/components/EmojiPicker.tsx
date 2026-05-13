@@ -9,6 +9,8 @@ interface Props {
   reactions?: MessageReaction[];
   /** All guild custom emojis available to the bot. */
   guildEmojis?: GuildEmoji[];
+  /** Initial selected key (for edit mode). */
+  initialValue?: string;
 }
 
 /**
@@ -20,8 +22,13 @@ interface Props {
  * The selected value is written to a single hidden input so the form
  * submission is unchanged from the simple text-field version.
  */
-export function EmojiPicker({ name, reactions = [], guildEmojis = [] }: Props) {
-  const [value, setValue] = useState("");
+export function EmojiPicker({
+  name,
+  reactions = [],
+  guildEmojis = [],
+  initialValue = "",
+}: Props) {
+  const [value, setValue] = useState(initialValue);
   // Inline custom search across guild emojis. Tiny query, so we just filter
   // client-side; debouncing is unnecessary.
   const [query, setQuery] = useState("");

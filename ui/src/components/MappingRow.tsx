@@ -1,4 +1,4 @@
-import { useFetcher } from "react-router";
+import { Link, useFetcher } from "react-router";
 import type { GuildChannel, Mapping, Role } from "../api.ts";
 import { RoleSwatch } from "./ui.tsx";
 import { EmojiDisplay } from "./EmojiDisplay.tsx";
@@ -85,6 +85,12 @@ export function MappingRow({ mapping, roleById, channelById }: Props) {
               {enabled ? "on" : "off"}
             </button>
           </toggleFetcher.Form>
+          <Link
+            to={`/?guild=${mapping.guild_id}&edit=${mapping.id}`}
+            className="text-xs px-2 py-1 border-2 border-stone-700 bg-stone-800 text-stone-300 hover:bg-stone-700"
+          >
+            edit
+          </Link>
           <deleteFetcher.Form
             method="post"
             onSubmit={(e) => {

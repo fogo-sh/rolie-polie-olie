@@ -129,13 +129,19 @@ export function createMapping(data: {
 
 export function updateMapping(
   id: number,
-  data: { mode?: RoleMapping["mode"]; enabled?: boolean; role_id?: string },
+  data: {
+    mode?: RoleMapping["mode"];
+    enabled?: boolean;
+    role_id?: string;
+    emoji_key?: string;
+  },
 ) {
   const fields: string[] = [];
   const values: SQLQueryBindings[] = [];
   if (data.mode !== undefined) { fields.push("mode = ?"); values.push(data.mode); }
   if (data.enabled !== undefined) { fields.push("enabled = ?"); values.push(data.enabled ? 1 : 0); }
   if (data.role_id !== undefined) { fields.push("role_id = ?"); values.push(data.role_id); }
+  if (data.emoji_key !== undefined) { fields.push("emoji_key = ?"); values.push(data.emoji_key); }
   if (fields.length === 0) return;
   values.push(id);
   db.run(`UPDATE role_mappings SET ${fields.join(", ")} WHERE id = ?`, values);

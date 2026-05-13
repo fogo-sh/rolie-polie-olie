@@ -29,6 +29,8 @@ interface AuthedData {
   guildEmojis: GuildEmoji[];
   channels: GuildChannel[];
   selectedGuild: string;
+  /** When the URL has ?edit=<id>, the mapping being edited. */
+  editing?: Mapping;
   error?: string;
 }
 
@@ -62,6 +64,8 @@ async function loader({ request }: LoaderFunctionArgs): Promise<LoaderData> {
   const me = await meRes.json();
 
   const selectedGuildParam = url.searchParams.get("guild") ?? "";
+  const editIdParam = url.searchParams.get("edit");
+  const editId = editIdParam ? Number(editIdParam) : null;
 
   try {
     const [guilds, mappings] = await Promise.all([
@@ -69,8 +73,15 @@ async function loader({ request }: LoaderFunctionArgs): Promise<LoaderData> {
       api.api.mappings.$get({ query: {} }).then(unwrap),
     ]);
 
+    // If we're editing, the mapping's guild wins over the query param so the
+    // right roles/emojis/channels load even if the user navigated via a bare
+    // /?edit=<id> URL.
+    const editing =
+      editId !== null ? mappings.find((m) => m.id === editId) : undefined;
     const selectedGuild =
-      selectedGuildParam || (guilds.length > 0 ? guilds[0].id : "");
+      editing?.guild_id ||
+      selectedGuildParam ||
+      (guilds.length > 0 ? guilds[0].id : "");
 
     let roles: Role[] = [];
     let guildEmojis: GuildEmoji[] = [];
@@ -110,6 +121,7 @@ async function loader({ request }: LoaderFunctionArgs): Promise<LoaderData> {
       guildEmojis,
       channels,
       selectedGuild,
+      editing,
     };
   } catch (e) {
     return {
@@ -176,6 +188,39 @@ async function action({
         .$patch({ param: { id: String(id) }, json: { enabled } })
         .then(unwrap);
       return { ok: true };
+    }
+
+    case "update-mapping": {
+      const id = Number(formData.get("id"));
+      if (Number.isNaN(id)) {
+        return { ok: false, error: "Missing mapping id" };
+      }
+      try {
+        await api.api.mappings[":id"]
+          .$patch({
+            param: { id: String(id) },
+            json: {
+              emoji_key: String(formData.get("emoji_key") ?? ""),
+              role_id: String(formData.get("role_id") ?? ""),
+              mode: formData.get("mode") as
+                | "toggle"
+                | "add-only"
+                | "remove-on-unreact",
+              enabled: formData.get("enabled") === "on",
+            },
+          })
+          .then(unwrap);
+      } catch (e) {
+        return {
+          ok: false,
+          error: e instanceof Error ? e.message : "Failed to save changes",
+        };
+      }
+      // Drop ?edit so the user lands back on the list view. Preserve ?guild
+      // so the right guild stays selected.
+      const url = new URL(request.url);
+      const guildId = url.searchParams.get("guild") ?? "";
+      return redirect(guildId ? `/?guild=${guildId}` : "/");
     }
 
     case "delete-mapping": {
@@ -356,6 +401,7 @@ function Component() {
     guildEmojis,
     channels,
     selectedGuild,
+    editing,
     error,
   } = data;
 
@@ -373,7 +419,11 @@ function Component() {
         <>
           <GuildList guilds={guilds} selectedGuild={selectedGuild} />
           {selectedGuild && (
-            <CreateMappingForm roles={roles} guildEmojis={guildEmojis} />
+            <CreateMappingForm
+              roles={roles}
+              guildEmojis={guildEmojis}
+              editing={editing}
+            />
           )}
           <MappingsList mappings={mappings} roles={roles} channels={channels} />
         </>

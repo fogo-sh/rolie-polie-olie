@@ -38,6 +38,7 @@ interface UpdateMappingInput {
   mode?: Mode;
   enabled?: boolean;
   role_id?: string;
+  emoji_key?: string;
 }
 
 // Lightweight JSON validators. Using `hono/validator` is what wires up the
