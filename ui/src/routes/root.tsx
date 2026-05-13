@@ -102,7 +102,13 @@ function AuthedApp({ me }: { me: Me }) {
         selectedGuild={selectedGuild}
       />
       {selectedGuild && (
+        // Key on the editing target so transitioning between create-mode and
+        // any specific edit (or between two different edits) remounts the
+        // form. That blows away leftover field state, the inspect query
+        // result, and the mutation error from the previous instance — much
+        // simpler than wiring a form.reset() effect for every edge case.
         <CreateMappingForm
+          key={editing ? `edit-${editing.id}` : "create"}
           roles={roles.data ?? []}
           guildEmojis={emojis.data ?? []}
           editing={editing}
