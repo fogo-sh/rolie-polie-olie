@@ -16,7 +16,7 @@ interface ParsedEmoji {
  * Custom:   `<:name:123>`  or `<a:name:123>`  → CDN image URL
  * Unicode:  raw character(s)                  → just shown as text
  */
-export function parseEmojiKey(key: string): ParsedEmoji {
+function parseEmojiKey(key: string): ParsedEmoji {
   const m = key.match(CUSTOM_EMOJI_RE);
   if (m) {
     const animated = m[1] === "a";
@@ -63,7 +63,7 @@ export function EmojiDisplay({
       className={`group inline-flex items-center gap-1 px-1 -mx-1 hover:bg-stone-800 cursor-pointer ${className}`}
     >
       {parsed.kind === "custom" && parsed.url ? (
-        <img src={parsed.url} alt={parsed.display} className="w-5 h-5" />
+        <img src={parsed.url} alt={parsed.display} className="size-5" />
       ) : (
         <span className="text-lg leading-none">{parsed.display}</span>
       )}

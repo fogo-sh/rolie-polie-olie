@@ -1,7 +1,8 @@
-import { Link, useFetcher } from "react-router";
+import { Link } from "react-router";
 import type { GuildChannel, Mapping, Role } from "../api.ts";
 import { RoleSwatch } from "./ui.tsx";
 import { EmojiDisplay } from "./EmojiDisplay.tsx";
+import { useDeleteMapping, useUpdateMapping } from "../queries.ts";
 
 interface Props {
   mapping: Mapping;
@@ -18,16 +19,20 @@ const MODE_BADGE: Record<Mapping["mode"], string> = {
 };
 
 export function MappingRow({ mapping, roleById, channelById }: Props) {
-  const toggleFetcher = useFetcher();
-  const deleteFetcher = useFetcher();
+  const toggle = useUpdateMapping();
+  const del = useDeleteMapping();
 
-  // Optimistic enabled state derived from in-flight form submission.
-  const enabled = toggleFetcher.formData
-    ? toggleFetcher.formData.get("enabled") === "true"
-    : !!mapping.enabled;
+  // Hide the row immediately while delete is in flight. If it fails we'll
+  // see the error reappear via the parent's mappings query refetch.
+  if (del.isPending) return null;
 
-  // Hide the row immediately on delete submission.
-  if (deleteFetcher.state !== "idle") return null;
+  // Optimistic toggle: while the mutation is pending, render whatever value
+  // we just sent. Once it lands, the parent query refetches and the row
+  // re-renders against the real value.
+  const enabled =
+    toggle.isPending && toggle.variables?.id === mapping.id
+      ? !!toggle.variables.patch.enabled
+      : !!mapping.enabled;
 
   const role = roleById.get(mapping.role_id);
   const channel = channelById.get(mapping.channel_id);
@@ -45,9 +50,13 @@ export function MappingRow({ mapping, roleById, channelById }: Props) {
                 <span className="text-stone-200">{role.name}</span>
               </span>
             ) : (
-              <span className="text-sm text-stone-400 font-mono">role {mapping.role_id}</span>
+              <span className="text-sm text-stone-400 font-mono">
+                role {mapping.role_id}
+              </span>
             )}
-            <span className={`text-xs px-2 py-0.5 border ${MODE_BADGE[mapping.mode]}`}>
+            <span
+              className={`text-xs px-2 py-0.5 border ${MODE_BADGE[mapping.mode]}`}
+            >
               {mapping.mode}
             </span>
           </div>
@@ -64,42 +73,36 @@ export function MappingRow({ mapping, roleById, channelById }: Props) {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <toggleFetcher.Form method="post">
-            <input type="hidden" name="intent" value="toggle-mapping" />
-            <input type="hidden" name="id" value={mapping.id} />
-            <input type="hidden" name="enabled" value={String(!enabled)} />
-            <button
-              type="submit"
-              className={`text-xs px-2 py-1 border-2 ${
-                enabled
-                  ? "bg-amber-700 text-amber-100 border-amber-500 hover:bg-amber-600"
-                  : "bg-stone-800 text-stone-400 border-stone-700 hover:bg-stone-700"
-              }`}
-            >
-              {enabled ? "on" : "off"}
-            </button>
-          </toggleFetcher.Form>
+          <button
+            type="button"
+            onClick={() =>
+              toggle.mutate({ id: mapping.id, patch: { enabled: !enabled } })
+            }
+            disabled={toggle.isPending}
+            className={`text-xs px-2 py-1 border-2 disabled:cursor-progress ${
+              enabled
+                ? "bg-amber-700 text-amber-100 border-amber-500 hover:bg-amber-600"
+                : "bg-stone-800 text-stone-400 border-stone-700 hover:bg-stone-700"
+            }`}
+          >
+            {enabled ? "on" : "off"}
+          </button>
           <Link
             to={`/?guild=${mapping.guild_id}&edit=${mapping.id}`}
             className="text-xs px-2 py-1 border-2 border-stone-700 bg-stone-800 text-stone-300 hover:bg-stone-700"
           >
             edit
           </Link>
-          <deleteFetcher.Form
-            method="post"
-            onSubmit={(e) => {
-              if (!confirm("Delete this mapping?")) e.preventDefault();
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm("Delete this mapping?")) del.mutate(mapping.id);
             }}
+            disabled={del.isPending}
+            className="text-xs px-2 py-1 border-2 border-red-700 bg-stone-800 text-red-300 hover:bg-red-900 disabled:cursor-progress"
           >
-            <input type="hidden" name="intent" value="delete-mapping" />
-            <input type="hidden" name="id" value={mapping.id} />
-            <button
-              type="submit"
-              className="text-xs px-2 py-1 border-2 border-red-700 bg-stone-800 text-red-300 hover:bg-red-900"
-            >
-              delete
-            </button>
-          </deleteFetcher.Form>
+            delete
+          </button>
         </div>
       </div>
     </div>

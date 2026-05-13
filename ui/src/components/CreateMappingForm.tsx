@@ -1,8 +1,19 @@
-import { useEffect, useState } from "react";
-import { Link, useFetcher } from "react-router";
-import { api, type GuildEmoji, type Mapping, type MessageInspect, type Role } from "../api.ts";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useQuery } from "@tanstack/react-query";
+import { Link, useNavigate, useSearchParams } from "react-router";
+import {
+  messageInspectQuery,
+  useCreateMapping,
+  useUpdateMapping,
+} from "../queries.ts";
 import { Field, inputClass, RoleSwatch } from "./ui.tsx";
 import { EmojiPicker } from "./EmojiPicker.tsx";
+import type {
+  GuildEmoji,
+  Mapping,
+  MessageInspect,
+  Role,
+} from "../api.ts";
 
 interface Props {
   roles: Role[];
@@ -11,192 +22,269 @@ interface Props {
   editing?: Mapping;
 }
 
-interface ActionResult {
-  ok: boolean;
-  error?: string;
+type Mode = Mapping["mode"];
+
+interface FormValues {
+  message_url: string;
+  emoji_key: string;
+  role_id: string;
+  mode: Mode;
+  enabled: boolean;
+  add_reaction: boolean;
 }
 
-const MESSAGE_URL_RE = /^https?:\/\/(?:[a-z]+\.)?discord\.com\/channels\/\d+\/\d+\/\d+$/i;
-
-type InspectState =
-  | { kind: "idle" }
-  | { kind: "loading" }
-  | { kind: "ok"; data: MessageInspect }
-  | { kind: "error"; message: string };
+const MESSAGE_URL_RE =
+  /^https?:\/\/(?:[a-z]+\.)?discord\.com\/channels\/\d+\/\d+\/\d+$/i;
 
 export function CreateMappingForm({ roles, guildEmojis, editing }: Props) {
   const isEdit = !!editing;
-  const fetcher = useFetcher<ActionResult>();
-  const isSubmitting = fetcher.state === "submitting";
-  const formError = fetcher.data?.ok === false ? fetcher.data.error : undefined;
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const guildParam = searchParams.get("guild") ?? editing?.guild_id ?? "";
 
-  // Source-of-truth for the URL: in edit mode it's locked to the mapping's
-  // existing URL; in create mode it's a controlled input.
-  const [messageUrl, setMessageUrl] = useState(editing?.message_url ?? "");
-  const [inspect, setInspect] = useState<InspectState>({ kind: "idle" });
+  const createMapping = useCreateMapping();
+  const updateMapping = useUpdateMapping();
+  const mutationError = isEdit ? updateMapping.error : createMapping.error;
 
-  // Debounced live preview: ~400ms after the URL stops changing, inspect it.
-  useEffect(() => {
-    const trimmed = messageUrl.trim();
-    if (!trimmed) {
-      setInspect({ kind: "idle" });
-      return;
-    }
-    if (!MESSAGE_URL_RE.test(trimmed)) {
-      setInspect({ kind: "idle" });
-      return;
-    }
-
-    let cancelled = false;
-    setInspect({ kind: "loading" });
-    const t = setTimeout(async () => {
-      try {
-        const res = await api.api.messages.inspect.$get({
-          query: { url: trimmed },
+  const form = useForm({
+    defaultValues: {
+      message_url: editing?.message_url ?? "",
+      emoji_key: editing?.emoji_key ?? "",
+      role_id: editing?.role_id ?? roles[0]?.id ?? "",
+      mode: (editing?.mode ?? "toggle") as Mode,
+      enabled: editing ? !!editing.enabled : true,
+      add_reaction: false,
+    } as FormValues,
+    onSubmit: async ({ value, formApi }) => {
+      if (isEdit) {
+        await updateMapping.mutateAsync({
+          id: editing!.id,
+          patch: {
+            emoji_key: value.emoji_key,
+            role_id: value.role_id,
+            mode: value.mode,
+            enabled: value.enabled,
+          },
         });
-        if (cancelled) return;
-        if (!res.ok) {
-          const body = (await res.json()) as { error?: string };
-          setInspect({
-            kind: "error",
-            message: body.error ?? `Failed (${res.status})`,
-          });
-          return;
-        }
-        const data = await res.json();
-        setInspect({ kind: "ok", data });
-      } catch (e) {
-        if (cancelled) return;
-        setInspect({
-          kind: "error",
-          message: e instanceof Error ? e.message : "Failed to load message",
-        });
+        // Drop ?edit so we land back on the list view.
+        navigate(guildParam ? `/?guild=${guildParam}` : "/");
+      } else {
+        await createMapping.mutateAsync(value);
+        formApi.reset();
       }
-    }, 400);
+    },
+  });
 
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [messageUrl]);
-
-  // Reset the create form after a successful submission. In edit mode the
-  // route navigates away (?edit param drops) so resetting state here is a
-  // no-op, but harmless.
-  useEffect(() => {
-    if (!isEdit && fetcher.state === "idle" && fetcher.data?.ok) {
-      setMessageUrl("");
-      setInspect({ kind: "idle" });
-    }
-  }, [fetcher.state, fetcher.data, isEdit]);
+  // Watch the message_url field so the inspect query reruns as the user types.
+  const messageUrlValue = useStore(form.store, (s) => s.values.message_url);
+  const inspect = useQuery(messageInspectQuery(messageUrlValue.trim()));
 
   return (
     <section className="bg-stone-900 border-2 border-stone-700 p-6 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">{isEdit ? "Edit mapping" : "New mapping"}</h2>
+        <h2 className="text-lg font-semibold">
+          {isEdit ? "Edit mapping" : "New mapping"}
+        </h2>
         {isEdit && (
           <Link
-            to={`/?guild=${editing!.guild_id}`}
+            to={guildParam ? `/?guild=${guildParam}` : "/"}
             className="text-xs text-stone-400 hover:text-stone-200 underline"
           >
             cancel
           </Link>
         )}
       </div>
-      {formError && (
-        <div className="bg-stone-900 border-2 border-red-700 text-red-300 px-4 py-3 text-sm">
-          {formError}
+
+      {mutationError && (
+        <div
+          role="alert"
+          className="bg-stone-900 border-2 border-red-700 text-red-300 px-4 py-3 text-sm"
+        >
+          {mutationError instanceof Error
+            ? mutationError.message
+            : "Something went wrong"}
         </div>
       )}
-      {/* In create mode, key on fetcher.data so the form remounts after a
-          successful save (clearing emoji picker / role select). In edit mode,
-          key on the mapping id so switching between mappings remounts. */}
-      <fetcher.Form
-        key={isEdit ? `edit-${editing!.id}` : fetcher.data?.ok ? `ok-${Date.now()}` : "form"}
-        method="post"
+
+      <form
         className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          form.handleSubmit();
+        }}
       >
-        <input type="hidden" name="intent" value={isEdit ? "update-mapping" : "create-mapping"} />
-        {isEdit && <input type="hidden" name="id" value={editing!.id} />}
-
-        <Field label="Message link">
-          {isEdit ? (
-            // Locked in edit mode — changing the message would effectively make
-            // it a different mapping. Use the existing one for context only.
-            <div className="text-sm font-mono text-stone-400 break-all">{messageUrl}</div>
-          ) : (
-            <input
-              type="text"
-              name="message_url"
-              required
-              value={messageUrl}
-              onChange={(e) => setMessageUrl(e.target.value)}
-              className={inputClass}
-              placeholder="https://discord.com/channels/123/456/789"
-            />
+        <form.Field
+          name="message_url"
+          validators={{
+            onChange: ({ value }) =>
+              !value
+                ? "Message link is required"
+                : !MESSAGE_URL_RE.test(value)
+                  ? "Must be a Discord message link"
+                  : undefined,
+          }}
+        >
+          {(field) => (
+            <Field id="message-url" label="Message link">
+              {isEdit ? (
+                <div className="text-sm font-mono text-stone-400 break-all">
+                  {field.state.value}
+                </div>
+              ) : (
+                <input
+                  id="message-url"
+                  type="text"
+                  className={inputClass}
+                  placeholder="https://discord.com/channels/123/456/789"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                />
+              )}
+              <InspectStatus
+                state={inspectStatusFromQuery(messageUrlValue, inspect)}
+              />
+            </Field>
           )}
-          <InspectStatus state={inspect} />
-        </Field>
+        </form.Field>
 
-        <Field label="Emoji">
-          <EmojiPicker
-            name="emoji_key"
-            reactions={inspect.kind === "ok" ? inspect.data.reactions : []}
-            guildEmojis={guildEmojis}
-            initialValue={editing?.emoji_key}
-          />
-        </Field>
-
-        <Field label="Role">
-          {roles.length === 0 ? (
-            <p className="text-sm text-amber-400">
-              No roles to show. The bot might not be in this server yet.
-            </p>
-          ) : (
-            <RoleSelect roles={roles} initialId={editing?.role_id ?? roles[0].id} />
+        <form.Field
+          name="emoji_key"
+          validators={{
+            onChange: ({ value }) =>
+              !value ? "Emoji is required" : undefined,
+          }}
+        >
+          {(field) => (
+            <Field id="emoji-key" label="Emoji">
+              <EmojiPicker
+                name="emoji_key"
+                value={field.state.value}
+                onChange={field.handleChange}
+                reactions={inspect.data?.reactions ?? []}
+                guildEmojis={guildEmojis}
+              />
+            </Field>
           )}
-        </Field>
+        </form.Field>
 
-        <Field label="Mode">
-          <select name="mode" defaultValue={editing?.mode ?? "toggle"} className={inputClass}>
-            <option value="toggle">toggle: add on react, remove on unreact</option>
-            <option value="add-only">add only: never takes the role back</option>
-            <option value="remove-on-unreact">remove on unreact: only takes the role away</option>
-          </select>
-        </Field>
+        <form.Field name="role_id">
+          {(field) =>
+            roles.length === 0 ? (
+              <Field id="role-id" label="Role">
+                <p className="text-sm text-amber-400">
+                  No roles to show. The bot might not be in this server yet.
+                </p>
+              </Field>
+            ) : (
+              <Field id="role-id" label="Role">
+                <RoleSelect
+                  roles={roles}
+                  value={field.state.value || roles[0].id}
+                  onChange={field.handleChange}
+                />
+              </Field>
+            )
+          }
+        </form.Field>
+
+        <form.Field name="mode">
+          {(field) => (
+            <Field id="mode" label="Mode">
+              <select
+                id="mode"
+                className={inputClass}
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value as Mode)}
+              >
+                <option value="toggle">
+                  toggle: add on react, remove on unreact
+                </option>
+                <option value="add-only">
+                  add only: never takes the role back
+                </option>
+                <option value="remove-on-unreact">
+                  remove on unreact: only takes the role away
+                </option>
+              </select>
+            </Field>
+          )}
+        </form.Field>
 
         <div className="flex items-center gap-6">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              name="enabled"
-              defaultChecked={editing ? !!editing.enabled : true}
-              className="w-4 h-4 accent-amber-500"
-            />
-            <span className="text-sm">Enabled</span>
-          </label>
-
+          <form.Field name="enabled">
+            {(field) => (
+              <Checkbox
+                id="enabled"
+                label="Enabled"
+                checked={field.state.value}
+                onChange={field.handleChange}
+              />
+            )}
+          </form.Field>
           {!isEdit && (
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" name="add_reaction" className="w-4 h-4 accent-amber-500" />
-              <span className="text-sm">Have the bot react too</span>
-            </label>
+            <form.Field name="add_reaction">
+              {(field) => (
+                <Checkbox
+                  id="add-reaction"
+                  label="Have the bot react too"
+                  checked={field.state.value}
+                  onChange={field.handleChange}
+                />
+              )}
+            </form.Field>
           )}
         </div>
 
-        <button
-          type="submit"
-          disabled={isSubmitting || roles.length === 0}
-          className="bg-amber-600 hover:bg-amber-500 text-stone-950 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-2 text-sm font-medium border-2 border-amber-400"
+        <form.Subscribe
+          selector={(s) => [s.canSubmit, s.isSubmitting] as const}
         >
-          {isSubmitting ? "Saving" : isEdit ? "Save changes" : "Save mapping"}
-        </button>
-      </fetcher.Form>
+          {([canSubmit, isSubmitting]) => (
+            <button
+              type="submit"
+              disabled={!canSubmit || roles.length === 0}
+              className="bg-amber-600 hover:bg-amber-500 text-stone-950 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-2 text-sm font-medium border-2 border-amber-400"
+            >
+              {isSubmitting
+                ? "Saving"
+                : isEdit
+                  ? "Save changes"
+                  : "Save mapping"}
+            </button>
+          )}
+        </form.Subscribe>
+      </form>
     </section>
   );
 }
 
-function InspectStatus({ state }: { state: InspectState }) {
+// --- helpers ---
+
+type InspectStatusKind =
+  | { kind: "idle" }
+  | { kind: "loading" }
+  | { kind: "ok"; data: MessageInspect }
+  | { kind: "error"; message: string };
+
+function inspectStatusFromQuery(
+  url: string,
+  q: { isFetching: boolean; data: MessageInspect | undefined; error: Error | null },
+): InspectStatusKind {
+  if (!url || !MESSAGE_URL_RE.test(url)) return { kind: "idle" };
+  if (q.isFetching && !q.data) return { kind: "loading" };
+  if (q.error) {
+    return {
+      kind: "error",
+      message: q.error instanceof Error ? q.error.message : "Failed to load",
+    };
+  }
+  if (q.data) return { kind: "ok", data: q.data };
+  return { kind: "idle" };
+}
+
+function InspectStatus({ state }: { state: InspectStatusKind }) {
   switch (state.kind) {
     case "idle":
       return null;
@@ -208,8 +296,10 @@ function InspectStatus({ state }: { state: InspectState }) {
       const n = state.data.reactions.length;
       return (
         <p className="text-xs text-amber-400 mt-1">
-          Found it in <span className="text-stone-300">#{state.data.channel_name}</span>
-          {n > 0 && `. ${n} reaction${n === 1 ? "" : "s"} already there.`}
+          Found it in{" "}
+          <span className="text-stone-300">#{state.data.channel_name}</span>
+          {n > 0 &&
+            `. ${n} reaction${n === 1 ? "" : "s"} already there.`}
         </p>
       );
     }
@@ -220,22 +310,25 @@ function InspectStatus({ state }: { state: InspectState }) {
  * Native <select> elements can't render arbitrary HTML, so the color swatch
  * lives in a small companion preview next to the dropdown.
  */
-function RoleSelect({ roles, initialId }: { roles: Role[]; initialId: string }) {
-  // If the previously-selected role no longer exists (e.g. deleted in
-  // Discord), fall back to the first role rather than rendering an empty
-  // <select> that submits an empty role_id.
-  const fallback = roles.find((r) => r.id === initialId)?.id ?? roles[0]?.id ?? "";
-  const [selectedId, setSelectedId] = useState(fallback);
-  const selected = roles.find((r) => r.id === selectedId);
+function RoleSelect({
+  roles,
+  value,
+  onChange,
+}: {
+  roles: Role[];
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const selected = roles.find((r) => r.id === value);
   return (
     <div className="flex items-center gap-2">
       {selected && <RoleSwatch color={selected.color} />}
       <select
-        name="role_id"
+        id="role-id"
         required
         className={inputClass}
-        value={selectedId}
-        onChange={(e) => setSelectedId(e.target.value)}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
       >
         {roles.map((r) => (
           <option key={r.id} value={r.id}>
@@ -244,5 +337,30 @@ function RoleSelect({ roles, initialId }: { roles: Role[]; initialId: string }) 
         ))}
       </select>
     </div>
+  );
+}
+
+function Checkbox({
+  id,
+  label,
+  checked,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <label htmlFor={id} className="flex items-center gap-2 cursor-pointer">
+      <input
+        id={id}
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="size-4 accent-amber-500"
+      />
+      <span className="text-sm">{label}</span>
+    </label>
   );
 }

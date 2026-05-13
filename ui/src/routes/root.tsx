@@ -1,45 +1,33 @@
 import {
   Form,
   useLoaderData,
-  useNavigation,
-  redirect,
+  useSearchParams,
   type LoaderFunctionArgs,
-  type ActionFunctionArgs,
   type RouteObject,
 } from "react-router";
+import { useIsFetching, useQuery } from "@tanstack/react-query";
 import {
-  api,
-  unwrap,
-  type Guild,
-  type GuildChannel,
-  type GuildEmoji,
-  type Mapping,
-  type Me,
-  type Role,
+  emojisQuery,
+  channelsQuery,
+  guildsQuery,
+  mappingsQuery,
+  meQuery,
+  rolesQuery,
+  useLogout,
+} from "../queries.ts";
+import type {
+  Guild,
+  GuildChannel,
+  Mapping,
+  Me,
+  Role,
 } from "../api.ts";
 import { CreateMappingForm } from "../components/CreateMappingForm.tsx";
 import { MappingRow } from "../components/MappingRow.tsx";
 
-interface AuthedData {
-  authed: true;
-  user: Me;
-  guilds: Guild[];
-  mappings: Mapping[];
-  roles: Role[];
-  guildEmojis: GuildEmoji[];
-  channels: GuildChannel[];
-  selectedGuild: string;
-  /** When the URL has ?edit=<id>, the mapping being edited. */
-  editing?: Mapping;
-  error?: string;
-}
-
-interface UnauthedData {
-  authed: false;
+interface LoaderData {
   loginError?: string;
 }
-
-type LoaderData = AuthedData | UnauthedData;
 
 const LOGIN_ERROR_MESSAGES: Record<string, string> = {
   not_authorized: "Your Discord account isn't on the allowlist for this bot.",
@@ -49,179 +37,87 @@ const LOGIN_ERROR_MESSAGES: Record<string, string> = {
   user_fetch_failed: "Couldn't read your Discord profile. Try again.",
 };
 
+// Loader only carries URL-derived state. All API data is fetched with
+// useQuery inside the component so it can be cached/refetched/mutated
+// independently across navigations.
 async function loader({ request }: LoaderFunctionArgs): Promise<LoaderData> {
-  const url = new URL(request.url);
-  const loginErrorCode = url.searchParams.get("login_error");
-  const loginError = loginErrorCode
-    ? (LOGIN_ERROR_MESSAGES[loginErrorCode] ?? loginErrorCode)
-    : undefined;
-
-  // Check session.
-  const meRes = await api.api.auth.me.$get();
-  if (!meRes.ok) {
-    return { authed: false, loginError };
-  }
-  const me = await meRes.json();
-
-  const selectedGuildParam = url.searchParams.get("guild") ?? "";
-  const editIdParam = url.searchParams.get("edit");
-  const editId = editIdParam ? Number(editIdParam) : null;
-
-  try {
-    const [guilds, mappings] = await Promise.all([
-      api.api.guilds.$get().then(unwrap),
-      api.api.mappings.$get({ query: {} }).then(unwrap),
-    ]);
-
-    // If we're editing, the mapping's guild wins over the query param so the
-    // right roles/emojis/channels load even if the user navigated via a bare
-    // /?edit=<id> URL.
-    const editing = editId !== null ? mappings.find((m) => m.id === editId) : undefined;
-    const selectedGuild =
-      editing?.guild_id || selectedGuildParam || (guilds.length > 0 ? guilds[0].id : "");
-
-    let roles: Role[] = [];
-    let guildEmojis: GuildEmoji[] = [];
-    let channels: GuildChannel[] = [];
-
-    if (selectedGuild) {
-      // Load guild-scoped reference data in parallel. Each is non-fatal —
-      // if any fails, that part of the UI just won't decorate.
-      const [rolesRes, emojisRes, channelsRes] = await Promise.allSettled([
-        api.api.guilds[":guildId"].roles.$get({
-          param: { guildId: selectedGuild },
-        }),
-        api.api.guilds[":guildId"].emojis.$get({
-          param: { guildId: selectedGuild },
-        }),
-        api.api.guilds[":guildId"].channels.$get({
-          param: { guildId: selectedGuild },
-        }),
-      ]);
-      if (rolesRes.status === "fulfilled" && rolesRes.value.ok) {
-        roles = await rolesRes.value.json();
-      }
-      if (emojisRes.status === "fulfilled" && emojisRes.value.ok) {
-        guildEmojis = await emojisRes.value.json();
-      }
-      if (channelsRes.status === "fulfilled" && channelsRes.value.ok) {
-        channels = await channelsRes.value.json();
-      }
-    }
-
-    return {
-      authed: true,
-      user: me,
-      guilds,
-      mappings,
-      roles,
-      guildEmojis,
-      channels,
-      selectedGuild,
-      editing,
-    };
-  } catch (e) {
-    return {
-      authed: true,
-      user: me,
-      guilds: [],
-      mappings: [],
-      roles: [],
-      guildEmojis: [],
-      channels: [],
-      selectedGuild: "",
-      error: e instanceof Error ? e.message : "Failed to load data",
-    };
-  }
+  const code = new URL(request.url).searchParams.get("login_error");
+  return {
+    loginError: code ? (LOGIN_ERROR_MESSAGES[code] ?? code) : undefined,
+  };
 }
 
-interface ActionResult {
-  ok: boolean;
-  error?: string;
-}
+function Component() {
+  const { loginError } = useLoaderData() as LoaderData;
+  const me = useQuery(meQuery());
 
-async function action({ request }: ActionFunctionArgs): Promise<ActionResult | Response> {
-  const formData = await request.formData();
-  const intent = formData.get("intent");
-
-  switch (intent) {
-    case "logout": {
-      await api.api.auth.logout.$post();
-      return redirect("/");
-    }
-
-    case "create-mapping": {
-      try {
-        await api.api.mappings
-          .$post({
-            json: {
-              message_url: String(formData.get("message_url") ?? ""),
-              emoji_key: String(formData.get("emoji_key") ?? ""),
-              role_id: String(formData.get("role_id") ?? ""),
-              mode: formData.get("mode") as "toggle" | "add-only" | "remove-on-unreact",
-              enabled: formData.get("enabled") === "on",
-              add_reaction: formData.get("add_reaction") === "on",
-            },
-          })
-          .then(unwrap);
-        return { ok: true };
-      } catch (e) {
-        return {
-          ok: false,
-          error: e instanceof Error ? e.message : "Failed to create mapping",
-        };
-      }
-    }
-
-    case "toggle-mapping": {
-      const id = Number(formData.get("id"));
-      const enabled = formData.get("enabled") === "true";
-      await api.api.mappings[":id"]
-        .$patch({ param: { id: String(id) }, json: { enabled } })
-        .then(unwrap);
-      return { ok: true };
-    }
-
-    case "update-mapping": {
-      const id = Number(formData.get("id"));
-      if (Number.isNaN(id)) {
-        return { ok: false, error: "Missing mapping id" };
-      }
-      try {
-        await api.api.mappings[":id"]
-          .$patch({
-            param: { id: String(id) },
-            json: {
-              emoji_key: String(formData.get("emoji_key") ?? ""),
-              role_id: String(formData.get("role_id") ?? ""),
-              mode: formData.get("mode") as "toggle" | "add-only" | "remove-on-unreact",
-              enabled: formData.get("enabled") === "on",
-            },
-          })
-          .then(unwrap);
-      } catch (e) {
-        return {
-          ok: false,
-          error: e instanceof Error ? e.message : "Failed to save changes",
-        };
-      }
-      // Drop ?edit so the user lands back on the list view. Preserve ?guild
-      // so the right guild stays selected.
-      const url = new URL(request.url);
-      const guildId = url.searchParams.get("guild") ?? "";
-      return redirect(guildId ? `/?guild=${guildId}` : "/");
-    }
-
-    case "delete-mapping": {
-      const id = Number(formData.get("id"));
-      await api.api.mappings[":id"].$delete({ param: { id: String(id) } }).then(unwrap);
-      return { ok: true };
-    }
-
-    default:
-      return { ok: false, error: `Unknown intent: ${intent}` };
+  // Render the login screen while the auth probe is in flight too — there's
+  // no useful UI to show without a session, and the alternative is a blank
+  // page during page load.
+  if (!me.data) {
+    return <LoginScreen loginError={loginError} />;
   }
+
+  return <AuthedApp me={me.data} />;
 }
+
+function AuthedApp({ me }: { me: Me }) {
+  const [searchParams] = useSearchParams();
+  const guildIdParam = searchParams.get("guild") ?? "";
+  const editIdParam = searchParams.get("edit");
+
+  const guilds = useQuery(guildsQuery());
+  const mappings = useQuery(mappingsQuery());
+
+  // If editing, the mapping's guild wins — that way a bare /?edit=<id>
+  // URL still loads the right guild's roles/emojis/channels.
+  const editing =
+    editIdParam !== null && mappings.data
+      ? mappings.data.find((m) => m.id === Number(editIdParam))
+      : undefined;
+  const selectedGuild =
+    editing?.guild_id ||
+    guildIdParam ||
+    (guilds.data && guilds.data.length > 0 ? guilds.data[0].id : "");
+
+  const roles = useQuery(rolesQuery(selectedGuild));
+  const emojis = useQuery(emojisQuery(selectedGuild));
+  const channels = useQuery(channelsQuery(selectedGuild));
+
+  // Any query/mutation in flight counts as busy. Drives the top progress bar.
+  const busy = useIsFetching() > 0;
+
+  const fatalError = guilds.error ?? mappings.error;
+
+  return (
+    <Layout user={me} busy={busy}>
+      {fatalError && (
+        <div className="bg-stone-900 border-2 border-red-700 text-red-300 px-4 py-3">
+          {fatalError instanceof Error ? fatalError.message : "Failed to load"}
+        </div>
+      )}
+
+      <GuildList
+        guilds={guilds.data ?? []}
+        selectedGuild={selectedGuild}
+      />
+      {selectedGuild && (
+        <CreateMappingForm
+          roles={roles.data ?? []}
+          guildEmojis={emojis.data ?? []}
+          editing={editing}
+        />
+      )}
+      <MappingsList
+        mappings={mappings.data ?? []}
+        roles={roles.data ?? []}
+        channels={channels.data ?? []}
+      />
+    </Layout>
+  );
+}
+
+// --- Layout pieces ---
 
 function Layout({
   user,
@@ -239,37 +135,56 @@ function Layout({
         <div className="flex items-center gap-4">
           <img src="/rpo.webp" alt="" className="w-12 h-16 object-cover" />
           <div>
-            <h1 className="text-2xl font-bold text-amber-400">rolie-polie-olie</h1>
-            <p className="text-sm text-stone-400">React to a message, get a role.</p>
+            <h1 className="text-2xl font-semibold text-amber-400">
+              rolie-polie-olie
+            </h1>
+            <p className="text-sm text-stone-400">
+              React to a message, get a role.
+            </p>
           </div>
         </div>
-        {user && (
-          <div className="flex items-center gap-3 text-sm">
-            <div className="flex items-center gap-2">
-              {user.avatar && (
-                <img
-                  src={`https://cdn.discordapp.com/avatars/${user.user_id}/${user.avatar}.png?size=32`}
-                  alt=""
-                  className="w-7 h-7 border-2 border-stone-700"
-                />
-              )}
-              <span className="text-stone-300">{user.username}</span>
-            </div>
-            <Form method="post">
-              <input type="hidden" name="intent" value="logout" />
-              <button
-                type="submit"
-                className="text-xs px-3 py-1.5 bg-stone-900 hover:bg-stone-800 border-2 border-stone-700"
-              >
-                Sign out
-              </button>
-            </Form>
-          </div>
-        )}
+        {user && <UserChip user={user} />}
       </header>
-      <main className="max-w-4xl mx-auto px-6 py-8 space-y-8" aria-busy={busy}>
+      <main
+        className="max-w-4xl mx-auto px-6 py-8 space-y-8"
+        aria-busy={busy}
+      >
         {children}
       </main>
+    </div>
+  );
+}
+
+function UserChip({ user }: { user: Me }) {
+  const logout = useLogout();
+  return (
+    <div className="flex items-center gap-3 text-sm">
+      <div className="flex items-center gap-2">
+        {user.avatar && (
+          <img
+            src={`https://cdn.discordapp.com/avatars/${user.user_id}/${user.avatar}.png?size=32`}
+            alt=""
+            className="size-7 border-2 border-stone-700"
+          />
+        )}
+        <span className="text-stone-300">{user.username}</span>
+      </div>
+      <button
+        type="button"
+        onClick={() => {
+          logout.mutate(undefined, {
+            onSettled: () => {
+              // Hard reload so we land back at the login screen with a clean
+              // state, including any cached queries cleared by the mutation.
+              window.location.assign("/");
+            },
+          });
+        }}
+        disabled={logout.isPending}
+        className="text-xs px-3 py-1.5 bg-stone-900 hover:bg-stone-800 border-2 border-stone-700 disabled:opacity-50"
+      >
+        {logout.isPending ? "Signing out…" : "Sign out"}
+      </button>
     </div>
   );
 }
@@ -298,11 +213,14 @@ function LoginScreen({ loginError }: { loginError?: string }) {
       <section className="bg-stone-900 border-2 border-stone-700 p-8 space-y-4 text-center">
         <h2 className="text-lg font-semibold">Who are you?</h2>
         <p className="text-sm text-stone-400">
-          Log in with Discord. The bot owner has to add your user ID to the allowlist before this
-          works.
+          Log in with Discord. The bot owner has to add your user ID to the
+          allowlist before this works.
         </p>
         {loginError && (
-          <div className="bg-stone-900 border-2 border-red-700 text-red-300 px-4 py-3 text-sm">
+          <div
+            role="alert"
+            className="bg-stone-900 border-2 border-red-700 text-red-300 px-4 py-3 text-sm"
+          >
             {loginError}
           </div>
         )}
@@ -317,7 +235,13 @@ function LoginScreen({ loginError }: { loginError?: string }) {
   );
 }
 
-function GuildList({ guilds, selectedGuild }: { guilds: Guild[]; selectedGuild: string }) {
+function GuildList({
+  guilds,
+  selectedGuild,
+}: {
+  guilds: Guild[];
+  selectedGuild: string;
+}) {
   return (
     <section className="bg-stone-900 border-2 border-stone-700 p-6 space-y-3">
       <h2 className="text-lg font-semibold">Servers</h2>
@@ -345,7 +269,9 @@ function GuildList({ guilds, selectedGuild }: { guilds: Guild[]; selectedGuild: 
                   <div className="font-medium">{g.name}</div>
                   <div className="text-xs text-stone-400">{g.id}</div>
                 </button>
-                {isSelected && <span className="text-xs text-amber-400">picked</span>}
+                {isSelected && (
+                  <span className="text-xs text-amber-400">picked</span>
+                )}
               </Form>
             );
           })}
@@ -375,7 +301,12 @@ function MappingsList({
       ) : (
         <div className="space-y-2">
           {mappings.map((m) => (
-            <MappingRow key={m.id} mapping={m} roleById={roleById} channelById={channelById} />
+            <MappingRow
+              key={m.id}
+              mapping={m}
+              roleById={roleById}
+              channelById={channelById}
+            />
           ))}
         </div>
       )}
@@ -383,40 +314,8 @@ function MappingsList({
   );
 }
 
-function Component() {
-  const data = useLoaderData() as LoaderData;
-  const navigation = useNavigation();
-  // Treat both submissions and loader revalidations as "busy". The loader
-  // returns the previous data while the next one resolves, so we keep the
-  // current UI on screen and just hint that something is in flight with a
-  // thin top-of-page bar plus a faded main area.
-  const busy = navigation.state !== "idle";
-
-  if (!data.authed) {
-    return <LoginScreen loginError={data.loginError} />;
-  }
-
-  const { user, guilds, mappings, roles, guildEmojis, channels, selectedGuild, editing, error } =
-    data;
-
-  return (
-    <Layout user={user} busy={busy}>
-      {error && (
-        <div className="bg-stone-900 border-2 border-red-700 text-red-300 px-4 py-3">{error}</div>
-      )}
-
-      <GuildList guilds={guilds} selectedGuild={selectedGuild} />
-      {selectedGuild && (
-        <CreateMappingForm roles={roles} guildEmojis={guildEmojis} editing={editing} />
-      )}
-      <MappingsList mappings={mappings} roles={roles} channels={channels} />
-    </Layout>
-  );
-}
-
 export const rootRoute: RouteObject = {
   path: "/",
   loader,
-  action,
   Component,
 };
