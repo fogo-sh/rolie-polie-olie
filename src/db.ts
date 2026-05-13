@@ -107,10 +107,33 @@ export function getMappings(guildId?: string): RoleMapping[] {
   return db.query("SELECT * FROM role_mappings ORDER BY created_at DESC").all() as RoleMapping[];
 }
 
+/**
+ * Reaction events fire on every reaction add/remove. Hitting SQLite each time
+ * is wasteful, especially for messages that have nothing mapped (the common
+ * case once the bot is in a busy server). Cache the enabled mappings for a
+ * given message in memory; a Map.has() of `messageId` tells us "we already
+ * checked, here's the answer (possibly empty)".
+ *
+ * Any write through createMapping / updateMapping / deleteMapping clears the
+ * whole cache. The cost is one extra SQL query per distinct message the next
+ * time someone reacts to it — which is fine since admin writes are rare and
+ * targeted invalidation gets subtle (e.g. emoji_key edits change which
+ * cached entries should match).
+ */
+const mappingsForMessageCache = new Map<string, RoleMapping[]>();
+
 export function getMappingsForMessage(messageId: string): RoleMapping[] {
-  return db
+  const cached = mappingsForMessageCache.get(messageId);
+  if (cached !== undefined) return cached;
+  const rows = db
     .query("SELECT * FROM role_mappings WHERE message_id = ? AND enabled = 1")
     .all(messageId) as RoleMapping[];
+  mappingsForMessageCache.set(messageId, rows);
+  return rows;
+}
+
+function invalidateMappingsCache() {
+  mappingsForMessageCache.clear();
 }
 
 export function createMapping(data: {
@@ -137,6 +160,7 @@ export function createMapping(data: {
       data.enabled ? 1 : 0,
     ],
   );
+  invalidateMappingsCache();
   return db
     .query("SELECT * FROM role_mappings WHERE id = ?")
     .get(result.lastInsertRowid) as RoleMapping;
@@ -172,10 +196,12 @@ export function updateMapping(
   if (fields.length === 0) return;
   values.push(id);
   db.run(`UPDATE role_mappings SET ${fields.join(", ")} WHERE id = ?`, values);
+  invalidateMappingsCache();
 }
 
 export function deleteMapping(id: number) {
   db.run("DELETE FROM role_mappings WHERE id = ?", [id]);
+  invalidateMappingsCache();
 }
 
 // --- Sessions ---
